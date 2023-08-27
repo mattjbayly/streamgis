@@ -1,0 +1,83 @@
+---
+title: "Cross Sectional Profile Lines"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Cross Sectional Profile Lines}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Cross-section profiles are valuable tools in hydrology for understanding, analyzing, and managing water resources and drainage systems. We will use a stream center line GIS file to generate perpendicular cross-sectional profiles.
+
+
+```{r setup}
+# Load or install the streamgis package
+library(streamgis)
+
+# Import a simple stream cetner line
+# center_line <- st_read("./path/to/my/file.gpkg", layer = "layer name")
+
+# or use default provided for tutorial
+fname <- system.file("extdata", "center_line.gpkg", package="streamgis")
+center_line <- sf::st_read(fname)
+plot(sf::st_geometry(center_line))
+
+```
+
+
+### Sample points along line
+
+Sample points along line or supply custom sample locations. Be sure to set the correct EPS G code for a local UTM zone. Set the point spacing to units of meters. `points_on_line` will return a `sf` spatial points object with line segment ID, point ID and cumulative distance. 
+
+
+```{r pol}
+
+points <- suppressWarnings({ points_on_line(center_line,
+                                         point_spacing = 100,
+                                         epsg = 26910) })
+head(points, 3)
+
+plot(sf::st_geometry(center_line[center_line$id == 1, ]))
+plot(sf::st_geometry(points[points$l_id == 1, ]), add = TRUE, col = "red")
+
+
+```
+
+### Create cross-sectional profiles
+
+Next we can create cross-sectional profile lines at each of the sample points along the stream centre line. Cross-sectional profile lines will be drawn perpendicular to the stream centre line. Additional information such as distance and bearings are in the data file as attribute fields.
+
+
+```{r cls}
+
+csl <- cross_section_lines(
+  center_line = center_line,
+  points = points,
+  cross_profile_length = 400,
+  epsg = 26910)
+
+head(csl, 3)
+
+plot(sf::st_geometry(center_line[center_line$id == 1, ]))
+plot(sf::st_geometry(points[points$l_id == 1, ]), add = TRUE, col = "red")
+plot(sf::st_geometry(csl[csl$l_id == 1, ]), add = TRUE, col = "blue")
+
+# sf::st_write(points, dsn = "points.gpkg", delete_dsn = TRUE)
+# sf::st_write(csl, dsn = "profiles.gpkg", delete_dsn = TRUE)
+
+
+
+
+```
+
+
+
+
+

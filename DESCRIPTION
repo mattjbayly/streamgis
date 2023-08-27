@@ -1,0 +1,23 @@
+Package: streamgis
+Title: Stream GIS Tools For Hydrology
+Version: 0.0.0.9000
+Authors@R: 
+    person("Matthew", "Bayly", , "mjbayly@mjbayly.com", role = c("aut", "cre"))
+Description: A collection of functions to support stream and watershed assessments.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.1
+Imports:
+    sf,
+    sp,
+    rgeos,
+    methods,
+    geosphere
+Suggests: 
+    knitr,
+    rgdal,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
