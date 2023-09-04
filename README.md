@@ -24,7 +24,7 @@ will be modified in the near future.
 
 * `cross_section_lines()` Perpendicular Cross-Section Lines.
 
-* `cross_section_lines()` Perpendicular Cross-Section Lines.
+* `clean_reach_buffer()` Clean buffer along stream cut by cross sections.
 
 
 ### Installation

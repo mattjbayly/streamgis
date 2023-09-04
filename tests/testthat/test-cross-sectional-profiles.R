@@ -54,5 +54,92 @@ test_that("test cross sectional profiles", {
 
 
 
+  # =============================================
+  # =============================================
+  # test  --- clean_reach_buffer
+  # =============================================
+  # =============================================
+
+  buff <- clean_reach_buffer(center_line = center_line,
+                             buffer_width = 100,
+                             cross_section_lines = csl,
+                             us_distance_colname = NA,
+                             epsg = 26910)
+
+
+  # plot(sf::st_geometry(center_line[center_line$id == 3, ]))
+  # plot(sf::st_geometry(pol[pol$l_id == 3, ]), add = TRUE, col = "red")
+  # plot(sf::st_geometry(csl[csl$l_id == 3, ]), add = TRUE, col = "blue")
+  # plot(sf::st_geometry(buff[buff$l_id == 3, ]), add = TRUE, col = "grey")
+  # plot(sf::st_geometry(csl[csl$l_id == 3, ]), add = TRUE, col = "blue")
+
+  # Test geometry type
+  test_geom <- as.character(unique(sf::st_geometry_type(buff)))
+  expect_true(test_geom == "POLYGON")
+  # Rows populated
+  expect_true(nrow(buff) > 0)
+  # Rows less than or equal to cross sections
+  expect_true(nrow(buff) <= nrow(csl))
+
+  # Fix order and test distance field
+  fix_order <- csl[order(csl$l_id, csl$p_id), ]
+  fix_order$us_distance_m <- cumsum(fix_order$distance_m)
+  # plot(fix_order['us_distance_m'])
+  csl <- fix_order
+
+  # Add variable length buffer
+  center_line$my_buffer <- rnorm(nrow(center_line)) * 20
+  center_line$my_buffer <- abs(center_line$my_buffer )
+
+  buff <- clean_reach_buffer(center_line = center_line,
+                             buffer_width = "my_buffer",
+                             cross_section_lines = csl,
+                             us_distance_colname = 'us_distance_m',
+                             epsg = 26910)
+
+
+  # plot(sf::st_geometry(center_line[center_line$id == 3, ]))
+  # plot(sf::st_geometry(pol[pol$l_id == 3, ]), add = TRUE, col = "red")
+  # plot(sf::st_geometry(csl[csl$l_id == 3, ]), add = TRUE, col = "blue")
+  # plot(sf::st_geometry(buff[buff$l_id == 3, ]), add = TRUE, col = "grey")
+  # plot(sf::st_geometry(csl[csl$l_id == 3, ]), add = TRUE, col = "blue")
+
+  # Test geometry type
+  test_geom <- as.character(unique(sf::st_geometry_type(buff)))
+  expect_true(test_geom == "POLYGON")
+  # Rows populated
+  expect_true(nrow(buff) > 0)
+  # Rows less than or equal to cross sections
+  expect_true(nrow(buff) <= nrow(csl))
+
+
+
+
+  # =============================================
+  # =============================================
+  # test  --- bcfwa_geometry
+  # =============================================
+  # =============================================
+
+  # or continue with default provided for tutorial
+  fname <- system.file("extdata", "bcfwa.gpkg", package="streamgis")
+  bcfwa <- sf::st_read(fname)
+
+  ds <- bcfwa_geometry(bcfwa = bcfwa,
+  upstream = 701794363,
+  downstream = 701773410,
+  epsg = 26910)
+
+  # Check names
+  names(ds)
+  expect_true(all(names(ds) == c("ds_path", "coordinates")))
+  expect_true(all(class(ds$ds_path) == c("sf", "data.frame")))
+  # View coordinates for longitudial profile
+  df <- ds$coordinates
+  dist1 <- tail(df$us_distance_m)[1]
+  dist2 <- sum(as.numeric(sf::st_length(ds$ds_path)))
+  diff <- abs(1 - dist1/dist2)
+  expect_true(diff < 0.05)
+
 
 })
