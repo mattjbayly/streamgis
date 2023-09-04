@@ -127,8 +127,9 @@ cross_section_lines <- function(center_line = NA,
 
     # Generate perpendicular line based on bearings
     perp_lines <- function(x, cross_profile_length) {
-      xcrd <- data.frame(X = x["X"],
-                         Y = x["Y"])
+      
+	  xcrd <- data.frame(X = x[1],
+                       Y = x[2])
 
       point_left <- geosphere::destPoint(xcrd, b = x["bl"],
                                          d = cross_profile_length)
