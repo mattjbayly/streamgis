@@ -78,8 +78,24 @@ points_on_line <- function(center_line = NA,
     segment_length <- rgeos::gLength(linesp)
 
     if(point_spacing > segment_length) {
-      print(paste0("Line segment length is ", round(segment_length, 0), "m "))
-      stop("Point spacing cannot be longer than line segment length")
+
+      print(paste0("Line segment length is ", round(segment_length, 0), " m "))
+      print("Sampling single point...")
+      # Single sample on line
+      crds <- sf::st_coordinates(line)
+      crds <- as.data.frame(crds)
+      mdist <- as.numeric(sf::st_length(line))
+      x_set <- crds$X[c(1, nrow(crds))]
+      y_set <- crds$Y[c(1, nrow(crds))]
+
+      # Build df
+      add_pt <- data.frame(l_id = line$id, p_id = c(1,2),
+                           group = c("start", "end"),
+                           distance_m = c(0, mdist), X = x_set, Y = y_set)
+
+      all_points[[j]] <- add_pt
+      warning("Point spacing cannot be longer than line segment length")
+      next
     }
 
     # Determine number of sample points to generate

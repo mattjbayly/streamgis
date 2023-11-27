@@ -40,7 +40,7 @@ and downstream LFID (linear feature ID).
 See FWA_STREAM_NETWORKS_SP.gdb at the FTP link.
 (FTP: ftp://ftp.geobc.gov.bc.ca/sections/outgoing/bmgs/FWA_Public).
 Additional steps involve reordering line features (where necessary).
-Processing is done for a single
+Processing is done for a single segment at a time.
 }
 \examples{
 \dontrun{
@@ -51,7 +51,7 @@ library(streamgis)
 # layer = "LNIC")
 
 # or continue with default provided for tutorial
-fname <- system.file("extdata", "bcfwa.gpkg", package="streamgis")
+fname <- system.file("extdata", "bcfwa2.gpkg", package="streamgis")
 bcfwa <- sf::st_read(fname)
 
 ds <- bcfwa_geometry(bcfwa = bcfwa,

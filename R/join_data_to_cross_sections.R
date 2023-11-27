@@ -1,0 +1,181 @@
+#' Join External Data to Cross Sections
+#'
+#' @description Join External Data to Cross Sectional Lines
+#'
+#' @details Join external data to cross sectional lines. External data is
+#' provided as a `to_join` sf datamframe object (e.g., points, lines or
+#' polygons). Join`type` is specified and then function returns a dataframe of
+#' the joined data to the parent dataframe of the `cross_section_lines`. Return
+#' type is a dataframe to avoid column name issues.
+#'
+#' @param to_join sf dataframe. Extrnal data to join to cross sections. Spatial
+#' data of class sf with geometry type of point, line or polygon. Must be
+#' projected to same CRS as `cross_section_lines` and `points_on_line`. Joined
+#' datat will be returned as a dataframe to `cbind` to the original cross shore
+#' profiles or lines.
+#' @param type character string. Either "closest_points" or
+#' "perpendicular_lines". "closest_points" is designed to join point data to the
+#' closest cross section. "perpendicular_lines" is designed to join streamline
+#' data linked to `to_join` line geometry objects running parallel to stream and
+#' perpendicular to cross sections. "perpendicular_lines" will be joined with an
+#' intersection and "closest_points" will be joined by distance.
+#' @param cross_section_lines sf dataframe. Object returned from
+#' `cross_section_lines`.
+#' @param points_on_line Optional. sf dataframe. Ideally bbject returned from
+#' `points_on_line`. If NA `st_centroid()` will be used to sample a single
+#' point along each `cross_section_lines`.
+#' @param epsg Numeric. EPSG code for local UTM projection system (see:
+#' https://spatialreference.org/ref/epsg/ for details).
+#'
+#' @returns An dataframe of the linked data from `to_join` linked to each row in
+#' the parent `points_on_line` or `cross_section_lines` dataframe.
+#'
+#' @examples
+#' \dontrun{
+#' }
+#'
+#' @export
+join_data_to_cross_sections <- function(
+    to_join = NA,
+    type = "closest_points",
+    cross_section_lines = NA,
+    points_on_line = NA,
+    epsg = 26910) {
+
+  # Take center point of cross sectional lines
+  if (!(is.data.frame(points_on_line))) {
+    points_on_line <- sf::st_centroid(cross_section_lines)
+  }
+
+  # Determine how to join
+  geom_type <- unique(sf::st_geometry_type(to_join))[1]
+
+  if (!(geom_type %in% c("POINT", "MULTIPOINT", "LINESTRING",
+                         "MULTILINESTRING"))) {
+    stop("to_join geometry type must be point or line string")
+  }
+
+  #-----------------------------------------
+  # Join points to points
+  #-----------------------------------------
+
+  if(type == "closest_points") {
+
+    # Find closest point
+    int <- sf::st_nearest_feature(points_on_line, to_join)
+
+    if(length(int) != nrow(points_on_line)) {
+      warning("Join IDs not equal...")
+    }
+
+    # Add join index
+    points_on_line$join_index <- int
+
+    # Add join distance
+    points_on_line$join_distance <- NA
+
+    # Get pairwise distances
+    distances <- apply(points_on_line, 1, function(x, y, epsg) {
+      join_index <- x[['join_index']]
+      geom <- x[['geometry']]
+      X <- geom[1]
+      Y <- geom[2]
+      mdf <- data.frame(id = 1, X = X, Y = Y)
+      mdf <- sf::st_as_sf(mdf, coords = c("X", "Y"))
+      sf::st_crs(mdf) <- epsg
+      y <- y[join_index, ]
+      dist <- as.numeric(sf::st_distance(x = mdf, y = y))
+      return(dist)
+    }, y = to_join, epsg = epsg)
+
+
+    points_on_line$join_distance <- unlist(distances)
+
+    # summary(points_on_line$join_distance)
+
+    # --------------------
+    # Prep return object
+    # --------------------
+    to_join_df <- to_join
+    sf::st_geometry(to_join_df) <- NULL
+
+    out_df <- data.frame(parent_index = 1:nrow(points_on_line), join_index =  points_on_line$join_index, join_distance = points_on_line$join_distance)
+
+
+    # Fix order for cbind
+    to_join_df_order <- to_join_df[out_df$join_index, ]
+    out_df2 <- cbind(out_df, to_join_df_order)
+
+    print("parent_index is linked to points_on_line")
+
+    return(out_df2)
+
+  }
+
+
+  #-----------------------------------------
+  # Join points to points
+  #-----------------------------------------
+
+  if(type == "perpendicular_lines") {
+
+    cross_section_lines$parent_index <- 1:nrow(cross_section_lines)
+
+    # Cannot exist
+    to_join$parent_index <- NULL
+
+    # Get cross sectional lines
+    ints <- suppressWarnings({ sf::st_intersection(cross_section_lines, to_join) })
+    gtype <- sf::st_geometry_type(ints)
+    ints <- ints[gtype %in% c("POINT", "MULTIPOINT"), ]
+
+
+    if(nrow(ints) > nrow(cross_section_lines)) {
+      dups <- ints[which(duplicated(paste0(ints$l_id, ints$p_id))), ]
+      # library(mapview)
+      # mapview(st_zm(dups)) + mapview(st_zm(to_join)) + mapview(st_zm(cross_section_lines))
+      warning("Intersection caused parent object to grow...")
+      ints <- ints[!(duplicated(paste0(ints$l_id, ints$p_id))), ]
+    }
+
+    sf::st_geometry(ints) <- NULL
+
+    cidnex <- which(colnames(ints) == "parent_index")[1]
+
+    # Get target columns
+    ints <- ints[, c(cidnex:ncol(ints))]
+
+    df_out <- data.frame(parent_index = cross_section_lines$parent_index,
+                         join = 0)
+
+    df_out$join <- ifelse(df_out$parent_index %in% unique(ints$parent_index), 1, df_out$join)
+
+    # Drop any duplicated elements
+    # Where cross section cuts across more than
+    # one streamline
+    if(any(duplicated(ints$parent_index))) {
+      print("Dropping duplicate intersection points...")
+      print("for individual stream lines...")
+      ints <- ints[!(duplicated(ints$parent_index)), ]
+    }
+
+
+    df_out2 <- merge(df_out, ints, by.x = "parent_index", by.y = "parent_index", all.x = TRUE, all.y = FALSE)
+
+
+    if(sum(df_out2$join) == 0) {
+      print("No successful joins")
+    }
+
+
+    print("parent_index is linked to cross_section_lines")
+
+
+    return(df_out2)
+
+  }
+
+
+
+
+}

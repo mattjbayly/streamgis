@@ -38,7 +38,6 @@
 #' center_line <- sf::st_read(fname)
 #' plot(sf::st_geometry(center_line))
 #'
-
 #' # Sample points along line
 #' pol <- suppressWarnings({ points_on_line(center_line,
 #'   point_spacing = 100, epsg = 26910) })

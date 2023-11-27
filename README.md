@@ -26,6 +26,8 @@ will be modified in the near future.
 
 * `clean_reach_buffer()` Clean buffer along stream cut by cross sections.
 
+* `bcfwa_geometry()` Get the x,y,z geometry from BCFWA streamlines.
+
 
 ### Installation
 

@@ -8,7 +8,7 @@
 #' See FWA_STREAM_NETWORKS_SP.gdb at the FTP link.
 #' (FTP: ftp://ftp.geobc.gov.bc.ca/sections/outgoing/bmgs/FWA_Public).
 #' Additional steps involve reordering line features (where necessary).
-#' Processing is done for a single
+#' Processing is done for a single segment at a time.
 #'
 #' @param bcfwa sf dataframe. Imported BCFWA streamline geometry. Import
 #' directly as gdb or gpkg to avoid losing the z (or M) elevation geometry.
@@ -33,7 +33,7 @@
 #' # layer = "LNIC")
 #'
 #' # or continue with default provided for tutorial
-#' fname <- system.file("extdata", "bcfwa.gpkg", package="streamgis")
+#' fname <- system.file("extdata", "bcfwa2.gpkg", package="streamgis")
 #' bcfwa <- sf::st_read(fname)
 #'
 #' ds <- bcfwa_geometry(bcfwa = bcfwa,
@@ -82,11 +82,10 @@ bcfwa_geometry <- function(bcfwa = NA,
   bcfwa <- bcfwa[!(grepl("999-999999$", bcfwa$FWA_WATERSHED_CODE)), ]
   bcfwa <- bcfwa[!(grepl("999-999999$", bcfwa$LOCAL_WATERSHED_CODE)), ]
 
-
+  # Drop any segments with zero length
+  bcfwa <- bcfwa[as.numeric(st_length(bcfwa)) > 0, ]
   # Local UTM zone
   bcfwa <- sf::st_transform(bcfwa, epsg)
-
-
 
   bcfwa <-
     suppressWarnings({
@@ -97,8 +96,9 @@ bcfwa_geometry <- function(bcfwa = NA,
       sf::st_cast(bcfwa, "LINESTRING")
     })
 
+
   # Add on line reach id (rid)
-  bcfwa$rid <- 1:nrow(bcfwa)
+  bcfwa$rid <- 1:nrow(bcfwa) # Change Nov 24, 2023
   bcfwa$lfid <- bcfwa$LINEAR_FEATURE_ID
 
   # Drop z geometry
@@ -108,58 +108,57 @@ bcfwa_geometry <- function(bcfwa = NA,
   # Use end point to start at upstream side
   nodes <- lwgeom::st_endpoint(bcfwa_bu)
   nodes <- sf::st_as_sf(nodes)
-
   # add on ID fields
   nodes$rid <- bcfwa_bu$rid
   nodes$lfid <- bcfwa_bu$lfid
   nodes$name <- bcfwa_bu$rid
+  us <- nodes[nodes$lfid == upstream, ]
 
   # Lines are draw from downstream to upstream
   # start point is downstream end point is upstream
-
   int <- sf::st_intersects(nodes)
   int <- lapply(int, length)
   int <- unlist(int)
-
   if (max(int) > 1) {
     stop("Line draw direction variables. Some segments backwards")
   }
 
 
+  # Use start point to end at downstream side
+  nodes <- lwgeom::st_startpoint(bcfwa_bu)
+  nodes <- sf::st_as_sf(nodes)
+  # add on ID fields
+  nodes$rid <- bcfwa_bu$rid
+  nodes$lfid <- bcfwa_bu$lfid
+  nodes$name <- bcfwa_bu$rid
+  ds <- nodes[nodes$lfid == downstream, ]
+
 
   # Build SF network
-  net <- sfnetworks::as_sfnetwork(bcfwa_bu, directed = FALSE)
-  net <- sfnetworks::activate(net, "edges")
-  net <- dplyr::mutate(net, weight = sfnetworks::edge_length())
-
-
-  # Downstream point
-  if(class(downstream)[1] %in% c("numeric", "character")) {
-    from_pt_ds <- nodes[nodes$lfid == downstream, ]
-    from_pt_ds <- from_pt_ds[1, ]
-  } else {
-   # spatial
-   from_pt_ds <- downstream
-  }
-
-  # Upstream point
-  if(class(upstream)[1] %in% c("numeric", "character")) {
-    to_pt_us <- nodes[nodes$lfid == upstream, ]
-    to_pt_us <- to_pt_us[1, ]
-  } else {
-    # spatial
-    to_pt_us <- upstream
-  }
+  bcfwa_bu$name <- bcfwa_bu$rid
+  to_net <- bcfwa_bu[, "name"]
+  to_net$name <- as.character(to_net$name)
+  net <- sfnetworks::as_sfnetwork(to_net)
 
 
   # Find shortest path
   path <- sfnetworks::st_network_paths(net,
-                                       from = from_pt_ds,
-                                       to = to_pt_us)
+                                       from = ds,
+                                       to = us)
 
 
   ds_route_ids <- path$edge_paths[[1]]
   ds_route <- bcfwa_bu[ds_route_ids, ]
+
+
+  if(FALSE) {
+    plot(st_geometry(bcfwa_bu))
+    plot(st_geometry(bcfwa_bu[bcfwa_bu$lfid == upstream, ]), add = TRUE, col = "red", lwd = 5)
+    plot(st_geometry(bcfwa_bu[bcfwa_bu$lfid == downstream, ]), add = TRUE, col = "pink", lwd = 5)
+    plot(st_geometry(ds_route), add = TRUE, col = "green", lwd = 5)
+  }
+
+
 
 
   # Get route geometry

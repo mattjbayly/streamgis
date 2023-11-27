@@ -3,14 +3,17 @@ test_that("test cross sectional profiles", {
   # Import a simple stream center line
   # center_line <- st_read("./path/to/my/file.gpkg", layer = "layer name")
   # or use default provided for tutorial
-  fname <- system.file("extdata", "center_line.gpkg", package="streamgis")
+  fname <-
+    system.file("extdata", "center_line.gpkg", package = "streamgis")
   center_line <- sf::st_read(fname)
 
   # plot(sf::st_geometry(center_line))
 
   # Sample points along line
-  pol <- suppressWarnings({ points_on_line(center_line,
-                                           point_spacing = 100) })
+  pol <- suppressWarnings({
+    points_on_line(center_line,
+                   point_spacing = 100)
+  })
 
   # points <- pol
 
@@ -32,10 +35,12 @@ test_that("test cross sectional profiles", {
   # =============================================
   # =============================================
 
-  csl <- cross_section_lines(center_line = center_line,
-                      points = pol,
-                      cross_profile_length = 250,
-                      epsg = 26910)
+  csl <- cross_section_lines(
+    center_line = center_line,
+    points = pol,
+    cross_profile_length = 250,
+    epsg = 26910
+  )
 
 
   # plot(sf::st_geometry(center_line[center_line$id == 3, ]))
@@ -60,11 +65,13 @@ test_that("test cross sectional profiles", {
   # =============================================
   # =============================================
 
-  buff <- clean_reach_buffer(center_line = center_line,
-                             buffer_width = 100,
-                             cross_section_lines = csl,
-                             us_distance_colname = NA,
-                             epsg = 26910)
+  buff <- clean_reach_buffer(
+    center_line = center_line,
+    buffer_width = 100,
+    cross_section_lines = csl,
+    us_distance_colname = NA,
+    epsg = 26910
+  )
 
 
   # plot(sf::st_geometry(center_line[center_line$id == 3, ]))
@@ -82,20 +89,22 @@ test_that("test cross sectional profiles", {
   expect_true(nrow(buff) <= nrow(csl))
 
   # Fix order and test distance field
-  fix_order <- csl[order(csl$l_id, csl$p_id), ]
+  fix_order <- csl[order(csl$l_id, csl$p_id),]
   fix_order$us_distance_m <- cumsum(fix_order$distance_m)
   # plot(fix_order['us_distance_m'])
   csl <- fix_order
 
   # Add variable length buffer
   center_line$my_buffer <- rnorm(nrow(center_line)) * 20
-  center_line$my_buffer <- abs(center_line$my_buffer )
+  center_line$my_buffer <- abs(center_line$my_buffer)
 
-  buff <- clean_reach_buffer(center_line = center_line,
-                             buffer_width = "my_buffer",
-                             cross_section_lines = csl,
-                             us_distance_colname = 'us_distance_m',
-                             epsg = 26910)
+  buff <- clean_reach_buffer(
+    center_line = center_line,
+    buffer_width = "my_buffer",
+    cross_section_lines = csl,
+    us_distance_colname = 'us_distance_m',
+    epsg = 26910
+  )
 
 
   # plot(sf::st_geometry(center_line[center_line$id == 3, ]))
@@ -122,13 +131,48 @@ test_that("test cross sectional profiles", {
   # =============================================
 
   # or continue with default provided for tutorial
-  fname <- system.file("extdata", "bcfwa.gpkg", package="streamgis")
+  fname <- system.file("extdata", "bcfwa2.gpkg", package = "streamgis")
   bcfwa <- sf::st_read(fname)
+  any(bcfwa$LINEAR_FEATURE_ID == 701790617)
+  # Spius: 701790617; Upper Coldwater: 701794363
+  # Lower Nicola: 701747059; Lower Coldwater: 701773410
 
-  ds <- bcfwa_geometry(bcfwa = bcfwa,
-  upstream = 701794363,
-  downstream = 701773410,
-  epsg = 26910)
+  ds <- bcfwa_geometry(
+    bcfwa = bcfwa,
+    upstream = 701794363,
+    downstream = 701773410,
+    epsg = 26910
+  )
+
+  # Plot it out - 2D map
+  if (FALSE) {
+    plot(st_geometry(bcfwa))
+    plot(
+      st_geometry(bcfwa[bcfwa$LINEAR_FEATURE_ID == 701794363,]),
+      add = TRUE,
+      col = "red",
+      lwd = 3
+    )
+    plot(
+      st_geometry(bcfwa[bcfwa$LINEAR_FEATURE_ID == 701773410,]),
+      add = TRUE,
+      col = "blue",
+      lwd = 6
+    )
+    plot(
+      st_geometry(bcfwa[bcfwa$LINEAR_FEATURE_ID %in% ds$ds_path$LINEAR_FEATURE_ID,]),
+      add = TRUE,
+      col = "yellow",
+      lwd = 2
+    )
+  }
+
+  # Plot it out - profile
+  if (FALSE) {
+    df <- ds$coordinates
+    plot(df$us_distance_m, df$Z, type = 'l')
+  }
+
 
   # Check names
   names(ds)
@@ -138,7 +182,7 @@ test_that("test cross sectional profiles", {
   df <- ds$coordinates
   dist1 <- tail(df$us_distance_m)[1]
   dist2 <- sum(as.numeric(sf::st_length(ds$ds_path)))
-  diff <- abs(1 - dist1/dist2)
+  diff <- abs(1 - dist1 / dist2)
   expect_true(diff < 0.05)
 
 
