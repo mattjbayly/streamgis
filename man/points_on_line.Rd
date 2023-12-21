@@ -4,7 +4,12 @@
 \alias{points_on_line}
 \title{Generate Points on Line}
 \usage{
-points_on_line(center_line = NA, point_spacing = 50, epsg = 26910)
+points_on_line(
+  center_line = NA,
+  point_spacing = 50,
+  epsg = 26910,
+  reverse_coordinates = FALSE
+)
 }
 \arguments{
 \item{center_line}{sf dataframe. Stream center line spatial data. Must be
@@ -16,6 +21,8 @@ must also be projected to a local UTM projection with units of meters.}
 
 \item{epsg}{Numeric. EPSG code for local UTM projection system (see:
 https://spatialreference.org/ref/epsg/ for details).}
+
+\item{reverse_coordinates}{Logical. If TRUE, coordinates will be reversed.}
 }
 \value{
 An sf dataframe object of points sampled along stream center lines.

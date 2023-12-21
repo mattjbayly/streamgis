@@ -50,8 +50,3 @@ polygons). Join\code{type} is specified and then function returns a dataframe of
 the joined data to the parent dataframe of the \code{cross_section_lines}. Return
 type is a dataframe to avoid column name issues.
 }
-\examples{
-\dontrun{
-}
-
-}

@@ -83,7 +83,7 @@ bcfwa_geometry <- function(bcfwa = NA,
   bcfwa <- bcfwa[!(grepl("999-999999$", bcfwa$LOCAL_WATERSHED_CODE)), ]
 
   # Drop any segments with zero length
-  bcfwa <- bcfwa[as.numeric(st_length(bcfwa)) > 0, ]
+  bcfwa <- bcfwa[as.numeric(sf::st_length(bcfwa)) > 0, ]
   # Local UTM zone
   bcfwa <- sf::st_transform(bcfwa, epsg)
 

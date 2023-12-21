@@ -18,6 +18,7 @@
 #' @param point_spacing Numeric. Point spacing distance in units of meters.
 #' @param epsg Numeric. EPSG code for local UTM projection system (see:
 #' https://spatialreference.org/ref/epsg/ for details).
+#' @param reverse_coordinates Logical. If TRUE, coordinates will be reversed.
 #'
 #' @returns An sf dataframe object of points sampled along stream center lines.
 #'
@@ -46,7 +47,8 @@
 #' @export
 points_on_line <- function(center_line = NA,
                            point_spacing = 50,
-                           epsg = 26910) {
+                           epsg = 26910,
+                           reverse_coordinates = FALSE) {
 
   # Cut with cross sectional profiles
   if (nrow(center_line) < 1) {
@@ -71,6 +73,13 @@ points_on_line <- function(center_line = NA,
     line <- suppressWarnings({
       sf::st_cast(line, "LINESTRING")
     })
+
+    if(reverse_coordinates) {
+      line <- sf::st_reverse(line)
+      # plot(st_geometry(line))
+      # plot(st_geometry(new_line))
+    }
+
 
     # Need class sp for some functions
     linesp <- methods::as(line, "Spatial")

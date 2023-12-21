@@ -30,10 +30,6 @@
 #' @returns An dataframe of the linked data from `to_join` linked to each row in
 #' the parent `points_on_line` or `cross_section_lines` dataframe.
 #'
-#' @examples
-#' \dontrun{
-#' }
-#'
 #' @export
 join_data_to_cross_sections <- function(
     to_join = NA,

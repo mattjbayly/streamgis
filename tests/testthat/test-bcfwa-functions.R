@@ -2,9 +2,9 @@ test_that("test bcfwa functions", {
 
   library(sf)
   # Test reach break function
-  tmp <- st_read("./inst/extdata/bcfwa2.gpkg")
+  tmp <- st_read(system.file("extdata", "bcfwa2.gpkg", package = "streamgis"))
   tmp <- st_transform(tmp, 26910)
-  breaks <- read.csv("./inst/extdata/stream_reach_breaks.csv")
+  breaks <- read.csv(system.file("extdata", "stream_reach_breaks.csv", package = "streamgis"))
 
   extra <- data.frame(river = NA, reach = "T3 to CW2", upper = 701786765, lower = 703346284, note = NA, tmp_c_Tw8_0_00_1 = NA)
   breaks <- rbind(breaks, extra)

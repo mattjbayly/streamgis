@@ -3,5 +3,6 @@
 export(bcfwa_geometry)
 export(clean_reach_buffer)
 export(cross_section_lines)
+export(get_utm_epsg)
 export(join_data_to_cross_sections)
 export(points_on_line)
