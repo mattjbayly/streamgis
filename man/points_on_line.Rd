@@ -12,54 +12,44 @@ points_on_line(
 )
 }
 \arguments{
-\item{center_line}{sf dataframe. Stream center line spatial data. Must be
-imported as an sf datamfrace object of LINESTRING or MULTILINESTRING. The
-object must have a column named \code{id} to represent the id field. The object
-must also be projected to a local UTM projection with units of meters.}
+\item{center_line}{An \code{sf} LINESTRING/MULTILINESTRING with a column \code{id} identifying each line.
+Must be projected (meters). If unprojected/unknown, the function will assign the provided \code{epsg}.}
 
-\item{point_spacing}{Numeric. Point spacing distance in units of meters.}
+\item{point_spacing}{Numeric. Point spacing in meters.}
 
-\item{epsg}{Numeric. EPSG code for local UTM projection system (see:
-https://spatialreference.org/ref/epsg/ for details).}
+\item{epsg}{Numeric EPSG code for the projected CRS in meters.}
 
-\item{reverse_coordinates}{Logical. If TRUE, coordinates will be reversed.}
+\item{reverse_coordinates}{Logical; if \code{TRUE}, reverse each line before sampling.}
 }
 \value{
-An sf dataframe object of points sampled along stream center lines.
+An \code{sf} POINT layer with columns:
+\code{l_id}, \code{p_id}, \code{group} (\code{start}/\code{sample}/\code{end}), \code{distance_m}.
 }
 \description{
-Samples points on stream centerline
+Sample points at a fixed spacing along stream centerlines.
 }
 \details{
-Samples points at a regular interval along stream center line
-these points can be used to construct stream cross sectional profiles
-and provide utility for other applications in hydrology and aquatic
-habitat assessments. Output fields include line segement id (l_id),
-point id (p_id, unique to each line segement). Distance (for each point
-on each line segement from line segment origin) and group according to
-whether point represents are \code{start} point, \code{end} point or \code{sample} point.
-Filter out start and end points if they are not needed.
+For each LINESTRING in \code{center_line}, this function generates:
+\itemize{
+\item a start point,
+\item regularly spaced sample points at \code{point_spacing} (m) from the start, and
+\item an end point.
+}
+
+It returns an \code{sf} point layer with metadata:
+\code{l_id} (line id), \code{p_id} (point index within line), \code{group} (\code{start}/\code{sample}/\code{end}),
+and \code{distance_m} (distance along the line from its origin).
 }
 \examples{
 \dontrun{
-
-library(streamgis)
-# Import a simple stream center line
-# center_line <- st_read("./path/to/my/file.gpkg", layer = "layer name")
-# or use default provided for tutorial
-fname <- system.file("extdata", "center_line.gpkg", package="streamgis")
-center_line <- sf::st_read(fname)
+fname <- system.file("extdata", "center_line.gpkg", package = "streamgis")
+center_line <- sf::st_read(fname, quiet = TRUE)
 plot(sf::st_geometry(center_line))
 
-# Sample points along line
-pol <- suppressWarnings({ points_on_line(center_line,
-  point_spacing = 100, epsg = 26910) })
+pts <- suppressWarnings(points_on_line(center_line, point_spacing = 100, epsg = 26910))
 
-# Plot to visualize
 plot(sf::st_geometry(center_line[center_line$id == 1, ]))
-plot(sf::st_geometry(pol[pol$l_id == 1, ]), add = TRUE, col = "red")
-
-
+plot(sf::st_geometry(pts[pts$l_id == 1, ]), add = TRUE, col = "red")
 }
 
 }

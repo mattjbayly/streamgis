@@ -5,6 +5,7 @@ test_that("test cross sectional profiles", {
   # or use default provided for tutorial
   fname <-
     system.file("extdata", "center_line.gpkg", package = "streamgis")
+  # fname <- "./inst/extdata/center_line.gpkg"
   center_line <- sf::st_read(fname)
 
   # plot(sf::st_geometry(center_line))
@@ -67,7 +68,7 @@ test_that("test cross sectional profiles", {
 
   buff <- clean_reach_buffer(
     center_line = center_line,
-    buffer_width = 100,
+    buffer_width = 80,
     cross_section_lines = csl,
     us_distance_colname = NA,
     epsg = 26910
@@ -132,6 +133,8 @@ test_that("test cross sectional profiles", {
 
   # or continue with default provided for tutorial
   fname <- system.file("extdata", "bcfwa2.gpkg", package = "streamgis")
+  # fname <- "./inst/extdata/bcfwa2.gpkg"
+
   bcfwa <- sf::st_read(fname)
   any(bcfwa$LINEAR_FEATURE_ID == 701790617)
   # Spius: 701790617; Upper Coldwater: 701794363

@@ -12,58 +12,51 @@ cross_section_lines(
 )
 }
 \arguments{
-\item{center_line}{sf dataframe. Stream center line spatial data. Must be
-imported as an sf datamfrace object of LINESTRING or MULTILINESTRING. The
-object must have a column named \code{id} to represent the id field. The object
-must also be projected to a local UTM projection with units of meters.}
+\item{center_line}{An \code{sf} data frame of LINESTRING or MULTILINESTRING geometry.
+Must include a column \code{id} (line identifier) and be projected in meters (local UTM).}
 
-\item{points}{sf dataframe. Stream sample points returned from
-from \code{points_on_line} or user-supplied points at which to create
-perpendicular profiles.}
+\item{points}{An \code{sf} data frame of sample points (e.g., from \code{points_on_line()})
+at which to create perpendicular profiles.}
 
-\item{cross_profile_length}{Numeric. Length (in meters) of cross-sectional
-profile lines. Total length of profile. Divide by two for center to edge}
+\item{cross_profile_length}{Numeric. Total length of each cross-section (m). The
+function uses half of this value on each side of the centerline.}
 
-\item{epsg}{Numeric. EPSG code for local UTM projection system (see:
-https://spatialreference.org/ref/epsg/ for details).}
+\item{epsg}{Numeric. EPSG code for the projected CRS (meters).}
 }
 \value{
-An sf dataframe object of perpendicular cross-sectional profile
-lines relative to stream centerline.
+An \code{sf} data frame of perpendicular cross-section profile lines relative to
+the stream centerline, with columns \code{l_id}, \code{p_id}, \code{group}, \code{distance_m},
+\code{bearing_next}, \code{bearing1}, and \code{bearing2}.
 }
 \description{
-Generate perpendicular cross-sectional lines to stream
+Generate perpendicular cross-sectional lines to a stream centerline.
 }
 \details{
-Function takes a stream center line object and output from
-\code{points_on_line} (or user supplied points) to generate perpendicular
-lines at sample points.
+Takes a stream centerline object and output from \code{points_on_line()} (or user-supplied
+sample points) and generates perpendicular lines at those points.
 }
 \examples{
 \dontrun{
-
 library(streamgis)
-# Import a simple stream center line
-# center_line <- st_read("./path/to/my/file.gpkg", layer = "layer name")
-# or use default provided for tutorial
-fname <- system.file("extdata", "center_line.gpkg", package="streamgis")
+# Example centerline
+fname <- system.file("extdata", "center_line.gpkg", package = "streamgis")
 center_line <- sf::st_read(fname)
 plot(sf::st_geometry(center_line))
 
-# Sample points along line
-pol <- suppressWarnings({ points_on_line(center_line,
-  point_spacing = 100, epsg = 26910) })
+# Sample points along the line
+pol <- suppressWarnings(points_on_line(center_line, point_spacing = 100, epsg = 26910))
 
-csl <- cross_section_lines(center_line = center_line,
-  points = pol,
+# Build cross sections
+csl <- cross_section_lines(
+  center_line = center_line,
+  points      = pol,
   cross_profile_length = 250,
-  epsg = 26910)
+  epsg        = 26910
+)
 
-# Plot to visualize
 plot(sf::st_geometry(center_line[center_line$id == 1, ]))
 plot(sf::st_geometry(pol[pol$l_id == 1, ]), add = TRUE, col = "red")
 plot(sf::st_geometry(csl[csl$l_id == 1, ]), add = TRUE, col = "blue")
-
 }
 
 }

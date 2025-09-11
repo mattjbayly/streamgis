@@ -1,58 +1,56 @@
 #' Perpendicular Cross-Section Lines
 #'
-#' @description Generate perpendicular cross-sectional lines to stream
+#' @description Generate perpendicular cross-sectional lines to a stream centerline.
 #'
-#' @details Function takes a stream center line object and output from
-#' `points_on_line` (or user supplied points) to generate perpendicular
-#' lines at sample points.
+#' @details
+#' Takes a stream centerline object and output from `points_on_line()` (or user-supplied
+#' sample points) and generates perpendicular lines at those points.
 #'
-#' @param center_line sf dataframe. Stream center line spatial data. Must be
-#' imported as an sf datamfrace object of LINESTRING or MULTILINESTRING. The
-#' object must have a column named `id` to represent the id field. The object
-#' must also be projected to a local UTM projection with units of meters.
-#' @param points sf dataframe. Stream sample points returned from
-#' from `points_on_line` or user-supplied points at which to create
-#' perpendicular profiles.
-#' @param  cross_profile_length Numeric. Length (in meters) of cross-sectional
-#' profile lines. Total length of profile. Divide by two for center to edge
-#' @param epsg Numeric. EPSG code for local UTM projection system (see:
-#' https://spatialreference.org/ref/epsg/ for details).
+#' @param center_line An `sf` data frame of LINESTRING or MULTILINESTRING geometry.
+#'   Must include a column `id` (line identifier) and be projected in meters (local UTM).
+#' @param points An `sf` data frame of sample points (e.g., from `points_on_line()`)
+#'   at which to create perpendicular profiles.
+#' @param cross_profile_length Numeric. Total length of each cross-section (m). The
+#'   function uses half of this value on each side of the centerline.
+#' @param epsg Numeric. EPSG code for the projected CRS (meters).
 #'
-#' @returns An sf dataframe object of perpendicular cross-sectional profile
-#' lines relative to stream centerline.
+#' @returns An `sf` data frame of perpendicular cross-section profile lines relative to
+#'   the stream centerline, with columns `l_id`, `p_id`, `group`, `distance_m`,
+#'   `bearing_next`, `bearing1`, and `bearing2`.
 #'
 #' @examples
 #' \dontrun{
-#'
 #' library(streamgis)
-#' # Import a simple stream center line
-#' # center_line <- st_read("./path/to/my/file.gpkg", layer = "layer name")
-#' # or use default provided for tutorial
-#' fname <- system.file("extdata", "center_line.gpkg", package="streamgis")
+#' # Example centerline
+#' fname <- system.file("extdata", "center_line.gpkg", package = "streamgis")
 #' center_line <- sf::st_read(fname)
 #' plot(sf::st_geometry(center_line))
 #'
-#' # Sample points along line
-#' pol <- suppressWarnings({ points_on_line(center_line,
-#'   point_spacing = 100, epsg = 26910) })
+#' # Sample points along the line
+#' pol <- suppressWarnings(points_on_line(center_line, point_spacing = 100, epsg = 26910))
 #'
-#' csl <- cross_section_lines(center_line = center_line,
-#'   points = pol,
+#' # Build cross sections
+#' csl <- cross_section_lines(
+#'   center_line = center_line,
+#'   points      = pol,
 #'   cross_profile_length = 250,
-#'   epsg = 26910)
+#'   epsg        = 26910
+#' )
 #'
-#' # Plot to visualize
 #' plot(sf::st_geometry(center_line[center_line$id == 1, ]))
 #' plot(sf::st_geometry(pol[pol$l_id == 1, ]), add = TRUE, col = "red")
 #' plot(sf::st_geometry(csl[csl$l_id == 1, ]), add = TRUE, col = "blue")
-#'
 #' }
 #'
+#' @importFrom magrittr %>%
 #' @export
 cross_section_lines <- function(center_line = NA,
                                 points = NA,
                                 cross_profile_length = 250,
                                 epsg = 26910) {
+
+  mgroup <- NULL
+
   # Cut with cross sectional profiles
   if (nrow(center_line) < 1) {
     stop("Center line is empty")
@@ -76,9 +74,6 @@ cross_section_lines <- function(center_line = NA,
       sf::st_cast(line, "LINESTRING")
     })
 
-    # Need class sp for some functions
-    linesp <- methods::as(line, "Spatial")
-
     # Get the points linked to current line segment
     line_id <- unique(line$id)[1]
 
@@ -88,25 +83,56 @@ cross_section_lines <- function(center_line = NA,
     coord_all <- as.data.frame(coord_all)
 
     # Convert to lat long for bearing
-    ca_sp <- coord_all
-    sp::coordinates(ca_sp) <- ~ X + Y
-    p4s <- suppressWarnings({
-      sp::proj4string(linesp)
-    })
-    sp::proj4string(ca_sp) <- p4s
-    ca_sp_4326 <-
-      sp::spTransform(ca_sp, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
-    cb <- sp::coordinates(ca_sp_4326)
+    ca_sp <- sf::st_as_sf(coord_all, coords = c("X", "Y"), crs = epsg)
+    ca_sp_4326 <- sf::st_transform(ca_sp, 4326)
+
+    cb <- sf::st_coordinates(ca_sp_4326)
     cb <- as.data.frame(cb)
 
+    p1 <- cb[-nrow(cb), ]  # origins
+    p2 <- cb[-1, ]         # destinations
 
-    bearings <-
-      geosphere::bearing(cb[1:(nrow(cb) - 1), ], cb[2:(nrow(cb)), ])
-    bearings <- c(bearings, bearings[length(bearings)])
+    # Fast vectorized bearings (0–360°) between consecutive rows of X (lon), Y (lat)
+    # Spherical Earth formula (no loops, no sp). Works directly on a data.frame.
+    bearing_seq <- function(df, x = "X", y = "Y") {
+      n <- nrow(df)
+      out <- rep(NA_real_, n)
+      if (n < 2)
+        return(out)
 
-    bearings <- ifelse(bearings < 0, 360 - abs(bearings), bearings)
+      i   <- seq_len(n - 1L)
+      lon1 <- df[[x]][i]
+      lat1 <- df[[y]][i]
+      lon2 <- df[[x]][i + 1L]
+      lat2 <- df[[y]][i + 1L]
 
-    coord_all$bearing_next <- bearings
+      ok <- is.finite(lon1) &
+        is.finite(lat1) & is.finite(lon2) & is.finite(lat2)
+      same <- ok & (lon1 == lon2 & lat1 == lat2)
+
+      rad <- pi / 180
+      phi1 <- lat1[ok] * rad
+      phi2 <- lat2[ok] * rad
+      dlam <- (lon2[ok] - lon1[ok]) * rad
+
+      y <- sin(dlam) * cos(phi2)
+      x <- cos(phi1) * sin(phi2) - sin(phi1) * cos(phi2) * cos(dlam)
+      theta <- atan2(y, x)
+
+      out[i[ok]] <- (theta * 180 / pi + 360) %% 360
+      out[i[same]] <- NA_real_
+      out
+    }
+
+    # Example: cb is a data.frame with columns X (lon) and Y (lat)
+    cb <- as.data.frame(sf::st_coordinates(ca_sp_4326))
+    cb$bearing <- bearing_seq(cb, "X", "Y")
+
+    cb$bearing <- ifelse(cb$bearing < 0, 360 - abs(cb$bearing), cb$bearing)
+
+    coord_all$bearing_next <- cb$bearing
+
+    bearings <- cb$bearing
 
     # left bearing
     bl <- bearings - 90
@@ -127,37 +153,42 @@ cross_section_lines <- function(center_line = NA,
 
     # Generate perpendicular line based on bearings
     perp_lines <- function(x, cross_profile_length) {
-      
-	  xcrd <- data.frame(X = x[1],
-                       Y = x[2])
 
-      point_left <- geosphere::destPoint(xcrd, b = x["bl"],
-                                         d = cross_profile_length)
+      #  print(x)
 
-      point_right <- geosphere::destPoint(xcrd, b = x["br"],
-                                          d = cross_profile_length)
+      xcrd <- data.frame(X = x[1], Y = x[2])
 
-      point_left <- as.data.frame(point_left)
+      xcrd_sf <- sf::st_as_sf(xcrd, coords = c("X", "Y"), crs = 4326)
 
-      point_right <- as.data.frame(point_right)
+      if(is.na(x["bl"])) {
+        return(NULL)
+      }
+
+      point_left <- dest_point_sf(pts = xcrd_sf,
+                                  bearing_deg = x["bl"],
+                                  distance_m = cross_profile_length)
+      point_right <- dest_point_sf(pts = xcrd_sf,
+                                   bearing_deg = x["br"],
+                                   distance_m = cross_profile_length)
+
+      point_left  <- as.data.frame(sf::st_coordinates(point_left))
+      point_right <- as.data.frame(sf::st_coordinates(point_right))
 
       mini_line <- rbind(point_left, point_right)
+      mini_line$mgroup <- 1
 
-      line_obj <- sp::Line(mini_line)
+      lsf <- mini_line %>%
+        sf::st_as_sf(coords = c("X", "Y"), crs = 4326) %>%
+        dplyr::group_by(mgroup) %>%
+        dplyr::summarize(do_union = FALSE) %>%  # do_union=FALSE doesn't work as well
+        sf::st_cast("LINESTRING")
 
-      lines_obj <- sp::Lines(list(line_obj), ID = 1)
+      lsf <- sf::st_as_sf(lsf)
 
-      l_obj <- sp::SpatialLines(list(lines_obj))
-
-      sp::proj4string(l_obj) <-
-        "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-
-      lsf <- sf::st_as_sf(l_obj)
-
-      lsf$id <- x["id"]
-      lsf$downstream_bearing <- x["downstream_bearing"]
-      lsf$bearing1 <- x["bl"]
-      lsf$bearing2 <- x["br"]
+      lsf$id <- as.numeric(x["id"])
+      lsf$downstream_bearing <- as.numeric(x["downstream_bearing"])
+      lsf$bearing1 <- as.numeric(x["bl"])
+      lsf$bearing2 <- as.numeric(x["br"])
 
       return(lsf)
 
@@ -185,22 +216,21 @@ cross_section_lines <- function(center_line = NA,
     pt_data <- these_pts
     sf::st_geometry(pt_data) <- NULL
 
-    plines_merge$p_id <- pt_data$p_id
-    plines_merge$group <- pt_data$group
-    plines_merge$distance_m <- pt_data$distance_m
+    pt_data$l_id <- NULL
+    plines_merge2 <- merge(plines_merge, pt_data,
+                           by.x = "id", by.y = "p_id", all.x = TRUE)
 
-    plines_merge$bearing_next <- plines_merge$downstream_bearing
+    plines_merge2$bearing_next <- plines_merge2$downstream_bearing
+    plines_merge2$p_id <- plines_merge2$id
+    plines_merge2$id <- NULL
 
-    plines_merge$id <- NULL
-
-    add_lines <- plines_merge[, c("l_id",
-                                  "p_id",
-                                  "group",
-                                  "distance_m",
-                                  "bearing_next",
-                                  "bearing1",
-                                  "bearing2")]
-
+    add_lines <- plines_merge2[, c("l_id",
+                                   "p_id",
+                                   "group",
+                                   "distance_m",
+                                   "bearing_next",
+                                   "bearing1",
+                                   "bearing2")]
 
     all_lines[[j]] <- add_lines
 
@@ -213,7 +243,4 @@ cross_section_lines <- function(center_line = NA,
   sf::st_crs(output) <- epsg
 
   return(output)
-
-
-
 }
