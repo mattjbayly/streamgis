@@ -12,10 +12,6 @@ library(testthat)
 
 # usethis::use_roxygen_md()     # once per package (if not already)
 
-
-library(sf)
-library(lwgeom)
-
 # Loading unfinished package to memory...
 rm(list = ls())
 devtools::load_all()

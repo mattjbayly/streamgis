@@ -82,6 +82,7 @@ clean_reach_buffer <- function(center_line = NA,
                                cross_section_lines = NA,
                                us_distance_colname = "us_distance_m",
                                epsg = 26910) {
+
   # ============================================
   # Create buffer
   # ============================================

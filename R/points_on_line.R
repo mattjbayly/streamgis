@@ -38,6 +38,7 @@ points_on_line <- function(center_line = NA,
                            point_spacing = 50,
                            epsg = 26910,
                            reverse_coordinates = FALSE) {
+
   if (is.na(center_line)[1] || !inherits(center_line, "sf")) {
     stop("`center_line` must be an sf object (LINESTRING/MULTILINESTRING) with an `id` column.")
   }
@@ -61,6 +62,7 @@ points_on_line <- function(center_line = NA,
   all_points <- vector("list", nrow(center_line))
 
   for (j in seq_len(nrow(center_line))) {
+
     line <- center_line[j, ]
     line <- suppressWarnings(sf::st_cast(line, "LINESTRING"))
 
@@ -69,6 +71,12 @@ points_on_line <- function(center_line = NA,
     }
 
     segment_length <- as.numeric(sf::st_length(line))
+
+    if(length(segment_length) != 1) {
+      print("Cast to linstring")
+      stop("Error: MULTILINE STRING with parts not handled")
+    }
+
 
     if (point_spacing > segment_length) {
       # single segment: just start & end
