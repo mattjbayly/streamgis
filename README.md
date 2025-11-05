@@ -18,15 +18,24 @@ will be modified in the near future.
 `remove.package("streamgis")`
 `devtools::install_github("mattjbayly/streamgis")`
 
-### Commonly-used functions
+### Commonly-used Functions and Workflow
 
 * `points_on_line()` Samples points on stream center line.
 
-* `cross_section_lines()` Perpendicular Cross-Section Lines.
+* `cross_section_lines()` Create perpendicular Cross-Section Lines.
+
+* `sample_profiles_and_canopy_angle()` Calculate canopy open angle with vegetation height raster or DSM - DTM product.
 
 * `clean_reach_buffer()` Clean buffer along stream cut by cross sections.
 
 * `bcfwa_geometry()` Get the x,y,z geometry from BCFWA streamlines.
+
+
+### Riparian Analysis
+
+Use the `sample_profiles_and_canopy_angle()` function to calculate canopy open angle.
+
+[![Canopy Open Angle](./man/figures/canopyopenangle.png)](https://onlinelibrary.wiley.com/doi/10.1111/1752-1688.12655?utm_source=researchgate)
 
 
 ### Installation
