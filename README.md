@@ -33,9 +33,14 @@ will be modified in the near future.
 
 ### Riparian Analysis
 
-Use the `sample_profiles_and_canopy_angle()` function to calculate canopy open angle.
+We can bring the functions together in a useful way to calculate various riparian habitat metrics. For example, starting with our stream center line we can use the `points_on_line ()`function to sample points along streamline at a specified distance (e.g., sample a point every 20m). `points_on_line ()`is similar to QChainage in QGIS, but can work with line geometry that is multipart or has multiple features. After we have sampled our points we can run `cross_section_lines()`to generate cross-sectional profiles along our streamline layer. We can specify the width and other arrtibutes. `cross_section_lines()` returns the bearing of the cross section and streamline. These attributes are useful when thinking about aspect and solar exposure.
+
+Finally, once we have our cross-sectional profiles from `cross_section_lines()`, we can bring in external tree height data, and/or DSM/DTMs (digital surface models / digital terrain models). We can then leverage the `sample_profiles_and_canopy_angle()`to sample points along each cross sectional profile to generate a cross-sectional elevation profile. We can specify point spacing, vertical offsets and other attributes for stream cross sectional analysis. Various other programs like HEC-RAS allow for similar functionality, but `sample_profiles_and_canopy_angle()` may come in useful for custom analyses.
+
+The following example provides similar functionality to [Seixas et al., 2018: Historical and Future Stream Temperature Change Predicted by a Lidar-Based Assessment of Riparian Condition and Channel Width](https://onlinelibrary.wiley.com/doi/10.1111/1752-1688.12655?utm_source=researchgate)
 
 [![Canopy Open Angle](./man/figures/canopyopenangle.png)](https://onlinelibrary.wiley.com/doi/10.1111/1752-1688.12655?utm_source=researchgate)
+
 
 
 ### Installation
