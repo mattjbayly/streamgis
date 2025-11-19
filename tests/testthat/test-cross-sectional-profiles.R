@@ -87,7 +87,7 @@ test_that("test cross sectional profiles", {
   # Rows populated
   expect_true(nrow(buff) > 0)
   # Rows less than or equal to cross sections
-  expect_true(nrow(buff) <= nrow(csl))
+  expect_true(nrow(buff) <= nrow(csl)) # ok 1
 
   # Fix order and test distance field
   fix_order <- csl[order(csl$l_id, csl$p_id),]
@@ -120,7 +120,7 @@ test_that("test cross sectional profiles", {
   # Rows populated
   expect_true(nrow(buff) > 0)
   # Rows less than or equal to cross sections
-  expect_true(nrow(buff) <= nrow(csl))
+  expect_true(nrow(buff) <= nrow(csl)) # ok2
 
 
 

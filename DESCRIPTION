@@ -14,7 +14,8 @@ Imports:
     dplyr,
     sfnetworks,
     magrittr,
-    stats
+    stats,
+    terra
 Suggests: 
     knitr,
     rmarkdown,

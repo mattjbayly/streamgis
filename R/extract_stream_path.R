@@ -72,7 +72,57 @@ extract_stream_path <- function(streamlines, point_1, point_2) {
   # Cast to LINESTRING (handling MULTILINESTRING)
   streamlines_cast <- suppressWarnings(sf::st_cast(streamlines, "LINESTRING"))
 
+  streamlines_cast$m___id <- 1:nrow(streamlines_cast)
+
   # Step 1: Snap points to nearest streamlines
+  snapped_pt1 <- snap_point_to_streamline(streamlines_cast, point_1)
+  snapped_pt2 <- snap_point_to_streamline(streamlines_cast, point_2)
+
+  # Add length metadata for shortest path weighting
+  streamlines_cast$length_m <- as.numeric(sf::st_length(streamlines_cast))
+
+  # Add explicit edge ID to enable row tracking in network
+  streamlines_cast$edge_id <- seq_len(nrow(streamlines_cast))
+
+  # Step 3: Create network from split streamlines
+  network <- create_stream_network(streamlines_cast)
+
+  # Step 4: Find shortest path on network
+  path_result <- find_shortest_path_network(network, streamlines_cast, snapped_pt1, snapped_pt2)
+
+  # Get the connected segments - global
+  ids_path <- streamlines_cast$m___id[path_result$edge_path]
+  id_start <- snapped_pt1$original_line$m___id
+  id_end <- snapped_pt2$original_line$m___id
+  uids <- unique(c(id_start, ids_path, id_end))
+
+  if(snapped_pt1$line_idx == snapped_pt2$line_idx) {
+    uids <- snapped_pt2$original_line$m___id
+  }
+
+  # Add on the focal segments
+  streamlines_cast <- streamlines_cast[streamlines_cast$m___id %in% uids, ]
+
+  streamlines_cast$length_m <- NULL
+  streamlines_cast$edge_id <- NULL
+  streamlines_cast$m___id <- NULL
+
+  # Path with no trimming
+  if(FALSE) {
+    plot(sf::st_geometry(streamlines), col = 'black')
+    plot(sf::st_geometry(point_1), col = 'red', pch = 16, cex = 1, add = TRUE)
+    plot(sf::st_geometry(snapped_pt1$original_line), col = 'red', add = TRUE)
+    plot(sf::st_geometry(point_2), col = 'red', pch = 16, cex = 1, add = TRUE)
+    plot(sf::st_geometry(snapped_pt2$original_line), col = 'red', add = TRUE)
+    plot(sf::st_geometry(streamlines_cast), col = 'blue', lwd = 2, add = TRUE)
+  }
+
+
+  # =========================================================
+  # Part2 - trim the path
+  # =========================================================
+
+  # Step 1: Re-Snap points to nearest streamlines
   snapped_pt1 <- snap_point_to_streamline(streamlines_cast, point_1)
   snapped_pt2 <- snap_point_to_streamline(streamlines_cast, point_2)
 
@@ -84,11 +134,36 @@ extract_stream_path <- function(streamlines, point_1, point_2) {
     snapped_pt2
   )
 
+  # If points are on one line then return single line
+  if(length(snapped_pt1$line_idx) == 1 && length(snapped_pt2$line_idx) == 1) {
+    if(snapped_pt1$line_idx == snapped_pt2$line_idx) {
+      streamlines_split$length_m <- as.numeric(sf::st_length(streamlines_split))
+      # Add explicit edge ID to enable row tracking in network
+      streamlines_split$edge_id <- seq_len(nrow(streamlines_split))
+      # move geometry column to the end
+      streamlines_split <- streamlines_split[, c(setdiff(names(streamlines_split), "geometry"), "geometry")]
+      # Return middle segment only
+      return(streamlines_split)
+    }
+  }
+
+
+
+  # plot(sf::st_geometry(streamlines), col = 'black')
+  # plot(sf::st_geometry(point_1), col = 'red', pch = 16, cex = 1, add = TRUE)
+  # plot(sf::st_geometry(point_2), col = 'red', pch = 16, cex = 1, add = TRUE)
+  # plot(sf::st_geometry(streamlines_split), col = 'blue', lwd = 2, add = TRUE)
+
   # Add length metadata for shortest path weighting
   streamlines_split$length_m <- as.numeric(sf::st_length(streamlines_split))
 
   # Add explicit edge ID to enable row tracking in network
   streamlines_split$edge_id <- seq_len(nrow(streamlines_split))
+
+  # test <- streamlines_split[streamlines_split$rid == snapped_pt2$original_line$rid, ]
+  # plot(st_geometry(test), col = as.factor(test$edge_id))
+  # plot(st_geometry(point_2), col = 'red', add = TRUE)
+  # plot(st_geometry(snapped_pt2$point), col = 'purple', add = TRUE)
 
   # Step 3: Create network from split streamlines
   network <- create_stream_network(streamlines_split)
@@ -105,6 +180,17 @@ extract_stream_path <- function(streamlines, point_1, point_2) {
     path_result
   )
 
+  if(FALSE) {
+    plot(sf::st_geometry(streamlines), col = 'black')
+    plot(sf::st_geometry(streamlines_cast), col = 'purple', add = TRUE)
+    plot(sf::st_geometry(streamlines_split), col = 'orange', add = TRUE)
+    plot(sf::st_geometry(point_1), col = 'red', pch = 16, cex = 1, add = TRUE)
+    plot(sf::st_geometry(point_2), col = 'red', pch = 16, cex = 1, add = TRUE)
+    plot(sf::st_geometry(streamlines_split[path_result$edge_path, ]), col = 'pink', add = TRUE)
+    plot(sf::st_geometry(result), col = 'blue', lwd = 2, add = TRUE)
+  }
+
+
   return(result)
 }
 
@@ -113,15 +199,52 @@ extract_stream_path <- function(streamlines, point_1, point_2) {
 #'
 #' @keywords internal
 snap_point_to_streamline <- function(streamlines, point) {
-  # Find nearest streamline
-  nearest_idx <- sf::st_nearest_feature(point, streamlines)
+
+  # streamlines <- streamlines_cast
+  # point <- point_1
+
+  if (!inherits(streamlines, "sf")) {
+    stop("`streamlines` must be an sf object.")
+  }
+  if (!inherits(point, "sf") || nrow(point) != 1) {
+    stop("`point` must be an sf object with exactly 1 feature.")
+  }
+
+  # 1) Find nearest streamline row index
+  nearest_idx  <- sf::st_nearest_feature(point, streamlines)
   nearest_line <- streamlines[nearest_idx, ]
 
-  # Snap point to the nearest line
-  snapped <- sf::st_snap(point, nearest_line, tolerance = Inf)
+  # 2) Compute the shortest segment from point to line
+  #    This returns a LINESTRING from the original point to the closest
+  #    point on the line.
+  seg <- sf::st_nearest_points(point, nearest_line)
+  # seg is an sfc_LINESTRING of length 1
 
-  # Extract coordinates from snapped point
-  snapped_coords <- sf::st_coordinates(snapped)[1, 1:2]
+  # 3) Extract the coordinates of that segment
+  seg_coords <- sf::st_coordinates(seg)
+  # First row: original point
+  # Second row: closest point on the line
+  snapped_coords <- seg_coords[2, 1:2]
+
+  # 4) Build a snapped POINT geometry at that closest location
+  snapped_geom <- sf::st_sfc(
+    sf::st_point(snapped_coords),
+    crs = sf::st_crs(point)
+  )
+
+  # 5) Wrap as sf, preserving any attributes on the input point
+  snapped <- sf::st_sf(
+    sf::st_drop_geometry(point),
+    geometry = snapped_geom
+  )
+
+  # 5) Extract coordinates
+  snapped_coords <- sf::st_coordinates(snapped)[1,1:2]
+
+  # plot(st_geometry(nearest_line), col = "lightblue")
+  # plot(st_geometry(point), col = "red", add = TRUE)
+  # plot(st_geometry(snapped), col = "purple", add = TRUE)
+
 
   # Return snapped point info with coordinates for clipping operations
   list(
@@ -136,63 +259,122 @@ snap_point_to_streamline <- function(streamlines, point) {
 #' Helper: Split streamlines at snapped point locations
 #'
 #' @keywords internal
-split_streamlines_at_points <- function(streamlines, snapped_pt1, snapped_pt2) {
+split_streamlines_at_points <- function(streamlines_cast, snapped_pt1, snapped_pt2) {
+
   # Start with original streamlines
-  result <- streamlines
+  result <- streamlines_cast
 
   # Get the line indices that need splitting
   idx1 <- snapped_pt1$line_idx
   idx2 <- snapped_pt2$line_idx
 
   # Split line 1 at snapped point 1
-  line1 <- streamlines[idx1, ]
+  line1 <- streamlines_cast[idx1, ]
   split_result1 <- split_line_at_point(line1, snapped_pt1$coords)
 
-  # Replace the original line with the first split result
-  result[idx1, ] <- split_result1[[1]]
+  # If split produced 2 segments, add the second one
+  if (length(split_result1) > 1) {
+
+    line_bg <- result[-idx1, ]
+
+    if(nrow(line_bg) > 0) {
+      # dealing with more than one line
+      dist1 <- min(as.numeric(sf::st_distance(split_result1[[1]], line_bg)))
+      dist2 <- min(as.numeric(sf::st_distance(split_result1[[2]], line_bg)))
+
+      if(dist2 < dist1) {
+        result[idx1, ] <- split_result1[[2]]
+      } else {
+        result[idx1, ] <- split_result1[[1]]
+      }
+    } else {
+      # dealing with only one line
+      dist1 <- min(as.numeric(sf::st_distance(split_result1[[1]], snapped_pt2$point)))
+      dist2 <- min(as.numeric(sf::st_distance(split_result1[[2]], snapped_pt2$point)))
+
+      if(dist2 < dist1) {
+        result[idx1, ] <- split_result1[[2]]
+      } else {
+        result[idx1, ] <- split_result1[[1]]
+      }
+
+    }
+
+  }
+
+  # plot(st_geometry(streamlines_cast), col = "lightgrey")
+  # plot(st_geometry(result[idx1, ]), add = TRUE)
+  # plot(st_geometry(result), add = TRUE, col = "green")
+  # plot(st_geometry(snapped_pt1$point), col = "red", add = TRUE)
+  # plot(st_geometry(split_result1[[1]]), col = "orange", add = TRUE)
+  # plot(st_geometry(snapped_pt2$point), col = "darkgreen", add = TRUE)
 
   # Ensure geometry column is named properly
   sf::st_geometry(result) <- "geometry"
 
-  # If split produced 2 segments, add the second one
-  if (length(split_result1) > 1) {
-    result <- rbind(result, split_result1[[2]])
-  }
-
   # Update idx2 if line 2 comes after line 1 and we added a row
   if (idx2 > idx1 && length(split_result1) > 1) {
-    idx2 <- idx2 + 1
+    # idx2 <- idx2 + 1 # EDIT SKIP THIS...
   }
 
   # Handle line 2 splitting
   if (idx2 != idx1) {
+
     # Points are on different lines - split line 2 at snapped point 2
     line2 <- result[idx2, ]
+
     split_result2 <- split_line_at_point(line2, snapped_pt2$coords)
 
-    # Replace line 2 with first split result
-    result[idx2, ] <- split_result2[[1]]
+    # Determine which half to keep. Must be touching residual
+    line_bg <- result[-idx2, ]
 
     # If split produced 2 segments, add the second one
     if (length(split_result2) > 1) {
-      result <- rbind(result, split_result2[[2]])
+
+      dist1 <- min(as.numeric(sf::st_distance(split_result2[[1]], line_bg)))
+      dist2 <- min(as.numeric(sf::st_distance(split_result2[[2]], line_bg)))
+
+      if(dist2 < dist1) {
+        result[idx2, ] <- split_result2[[2]]
+      } else {
+        result[idx2, ] <- split_result2[[1]]
+      }
     }
+
+    # plot(st_geometry(streamlines_cast), col = "lightgrey")
+    # plot(st_geometry(line2), add = TRUE)
+    # plot(st_geometry(snapped_pt2$point), col = "red", add = TRUE)
+    # plot(st_geometry(split_result2[[1]]), col = "orange", add = TRUE)
+    # plot(st_geometry(split_result2[[2]]), col = "purple", add = TRUE)
+    # plot(st_geometry(result), col = "red", add = TRUE)
+    # plot(st_geometry(snapped_pt1$point), col = "red", add = TRUE)
+
   } else {
+
+    # Splitting one line only
     # Points are on the same line - split at both points
     line <- result[idx1, ]
-    split_result <- split_line_at_two_points(
-      line,
-      snapped_pt1$coords,
-      snapped_pt2$coords
-    )
 
-    # Replace the line with first split result
-    result[idx1, ] <- split_result[[1]]
+    split_result2 <- split_line_at_point(line, snapped_pt2$coords)
 
-    # Add remaining split segments
-    for (i in 2:length(split_result)) {
-      result <- rbind(result, split_result[[i]])
+    # dealing with only one line
+    dist1 <- min(as.numeric(sf::st_distance(split_result2[[1]], snapped_pt1$point)))
+    dist2 <- min(as.numeric(sf::st_distance(split_result2[[2]], snapped_pt1$point)))
+
+    if(dist2 < dist1) {
+      result[idx1, ] <- split_result2[[2]]
+    } else {
+      result[idx1, ] <- split_result2[[1]]
     }
+
+    # plot(st_geometry(streamlines_cast), col = "lightgrey")
+    # plot(st_geometry(line), add = TRUE)
+    # plot(st_geometry(snapped_pt2$point), col = "red", add = TRUE)
+    # plot(st_geometry(split_result2[[1]]), col = "orange", add = TRUE)
+    # plot(st_geometry(split_result2[[2]]), col = "purple", add = TRUE)
+    # plot(st_geometry(snapped_pt1$point), col = "grey", pch = 19, add = TRUE)
+    # plot(st_geometry(result), col = "yellow", pch = 19, add = TRUE)
+
   }
 
   return(result)
@@ -360,8 +542,15 @@ create_stream_network <- function(streamlines) {
 #' @keywords internal
 find_shortest_path_network <- function(network, streamlines, snapped_pt1, snapped_pt2) {
 
+  # streamlines <- streamlines_split
+
   # 1) Get nodes from network
   nodes <- network %>% sfnetworks::activate("nodes") %>% sf::st_as_sf()
+
+
+  # plot(st_geometry(streamlines))
+  # plot(st_geometry(streamlines_split))
+  # plot(st_geometry(nodes), add = TRUE, col = "red")
 
   # 2) Get the snapped points
   pt1 <- snapped_pt1$point
@@ -398,13 +587,15 @@ find_shortest_path_network <- function(network, streamlines, snapped_pt1, snappe
 }
 
 
-#' Helper: Extract and combine path segments from streamlines
+#' Helper: Extract and combine path segments from streamlines_split
 #'
 #' @keywords internal
-extract_path_segments <- function(streamlines, snapped_pt1, snapped_pt2, path_result) {
+extract_path_segments <- function(streamlines_split, snapped_pt1, snapped_pt2, path_result) {
+
+  # streamlines_split <- streamlines_cast
 
   # Extract edge indices from path result
-  # These are row numbers in the streamlines dataframe
+  # These are row numbers in the streamlines_split dataframe
   edge_indices <- path_result$edge_path
 
   if (length(edge_indices) == 0) {
@@ -416,12 +607,13 @@ extract_path_segments <- function(streamlines, snapped_pt1, snapped_pt2, path_re
   pt2_coords <- snapped_pt2$coords
 
   # Select all segments in path order
-  path_segments <- streamlines[edge_indices, , drop = FALSE]
+  path_segments <- streamlines_split[edge_indices, , drop = FALSE]
 
   # Process each segment in the path
   all_segments <- list()
 
   for (i in seq_along(edge_indices)) {
+
     # Get the current segment
     segment <- path_segments[i, , drop = FALSE]
 
@@ -435,10 +627,12 @@ extract_path_segments <- function(streamlines, snapped_pt1, snapped_pt2, path_re
       clipped <- clip_line_between_points(segment, pt1_coords, pt2_coords)
     } else if (is_first) {
       # First segment in multi-segment path: remove start, keep from pt1 onwards
-      clipped <- clip_line_from_start(segment, pt1_coords)
+      # clipped <- clip_line_from_start(segment, pt1_coords)
+      clipped <- segment # already clipped
     } else if (is_last) {
       # Last segment in multi-segment path: remove end, keep up to pt2
-      clipped <- clip_line_to_end(segment, pt2_coords)
+      # clipped <- clip_line_to_end(segment, pt2_coords)
+      clipped <- segment # already clipped
     } else {
       # Middle segments: keep entire geometry
       clipped <- segment
@@ -514,6 +708,12 @@ clip_line_from_start <- function(line, point_coords) {
 #'
 #' @keywords internal
 clip_line_to_end <- function(line, point_coords) {
+
+  # line <- segment
+  # point_coords <- pt2_coords
+
+  # plot(st_geometry(line), col = "blue")
+
   coords <- sf::st_coordinates(line)[, 1:2]
 
   if (nrow(coords) < 2) return(NULL)
@@ -521,6 +721,7 @@ clip_line_to_end <- function(line, point_coords) {
   # Find the segment containing the snapped point
   min_dist <- Inf
   min_idx <- 1
+
   for (i in 1:(nrow(coords) - 1)) {
     p1 <- coords[i, ]
     p2 <- coords[i + 1, ]
@@ -552,6 +753,8 @@ clip_line_to_end <- function(line, point_coords) {
     geometry = sf::st_sfc(sf::st_linestring(new_coords), crs = sf::st_crs(line)),
     sf::st_drop_geometry(line)
   )
+
+   # st_length(new_line)
 
   return(new_line)
 }

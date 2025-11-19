@@ -409,9 +409,9 @@ sample_profiles_and_canopy_angle <- function(csl,
 
 
   # Run the canopy angle function across profiles
-  canopy_df_list <- pts_sf |>
-    sf::st_drop_geometry() |>
-    dplyr::group_by(l_id, p_id, uid) |>
+  canopy_df_list <- pts_sf %>%
+    sf::st_drop_geometry() %>%
+    dplyr::group_by(l_id, p_id, uid) %>%
     dplyr::group_map( ~ compute_one_angle(.x, center_distance), .keep = TRUE)
 
   canopy_df <- do.call("rbind", canopy_df_list)

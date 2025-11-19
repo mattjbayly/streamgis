@@ -2,16 +2,16 @@
 
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/streamgis)](https://cran.r-project.org/package=streamgis)
 
-Hydrology, watershed and river bathymetry functions for spatial data in R
+streamgis is an R package for spatial analysis of streams and riparian ecosystems. It's designed to help hydrologists, environmental scientists, and watershed managers analyze stream networks, riparian habitats, and aquatic ecosystems using GIS data.
 
-### Spatial data  
-
-The 'streamgis' package is intended as a free and readily-available resource for common
-functions to support aquatic ecosystem assessments, hydrology and 
-other watershed functions with spatial data.
-
-Note that the current version of 'streamgis' is built on 'sp' and 'rgdal' and
-will be modified in the near future.
+The package provides specialized tools for:
+- Sampling stream centerlines at regular intervals
+- Creating cross-sectional profiles perpendicular to streams
+- Analyzing vegetation and canopy cover (important for predicting stream temperature impacts on fish)
+- Delineating riparian zones with clean buffers
+- Integrating external spatial data (land use, infrastructure, etc.)
+  
+It's built on modern R spatial libraries (sf, terra) and is particularly useful for stream temperature modeling, habitat assessment, and watershed management workflows.
 
 ### Installation
 
@@ -40,9 +40,6 @@ Finally, once we have our cross-sectional profiles from `cross_section_lines()`,
 The following example provides similar functionality to [Seixas et al., 2018: Historical and Future Stream Temperature Change Predicted by a Lidar-Based Assessment of Riparian Condition and Channel Width](https://onlinelibrary.wiley.com/doi/10.1111/1752-1688.12655?utm_source=researchgate)
 
 [![Canopy Open Angle](./man/figures/canopyopenangle.png)](https://onlinelibrary.wiley.com/doi/10.1111/1752-1688.12655?utm_source=researchgate)
-
-![Canopy](./man/figures/canopyopenangle.png){width=80% fig-align="center"}
-
 
 
 ### Installation
