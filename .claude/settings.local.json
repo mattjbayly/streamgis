@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(Rscript:*)"
+      "Bash(Rscript:*)",
+      "Bash(cd:*)",
+      "Bash(cat:*)",
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)"
     ]
   }
 }
