@@ -20,7 +20,7 @@ devtools::test()  # Run tests - all passed Sept 10 2025
 devtools::check() # Operating system test - all passed Sept 10 2025
 
 
-remove.packages("custompackage")
+remove.packages("streamgis")
 # install.packages(getwd(), repos = NULL, type = "source")
 # devtools::install_github("username/custompackage")
 # library(custompackage)
