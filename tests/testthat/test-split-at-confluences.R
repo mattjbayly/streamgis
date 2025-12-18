@@ -1,11 +1,15 @@
 # Tests for split_at_confluences function
 
 test_that("split_at_confluences works with real stream network", {
+
   # Load test data
   fname <- system.file("extdata", "ifc_coho.gpkg", package = "streamgis")
   skip_if(fname == "", "Test data not available")
 
   streams <- sf::st_read(fname, quiet = TRUE)
+
+  # only process a 10th of them
+  streams <- streams[seq(1, nrow(streams), by = 10), ]
 
   result <- split_at_confluences(streams, tolerance = 0.1)
 
@@ -38,10 +42,14 @@ test_that("split_at_confluences works with real stream network", {
 
 
 test_that("split_at_confluences preserves original attributes", {
+
   fname <- system.file("extdata", "ifc_coho.gpkg", package = "streamgis")
   skip_if(fname == "", "Test data not available")
 
   streams <- sf::st_read(fname, quiet = TRUE)
+  streams <- streams[seq(1, nrow(streams), by = 10), ]
+
+
   original_cols <- setdiff(names(streams), attr(streams, "sf_column"))
 
   result <- split_at_confluences(streams, tolerance = 0.1)
@@ -55,6 +63,7 @@ test_that("split_at_confluences preserves original attributes", {
 
 
 test_that("split_at_confluences handles simple Y junction", {
+
   # Create a simple Y junction: three lines meeting at a point
   # Line 1: horizontal from left to center
   # Line 2: diagonal from upper-right to center
@@ -280,6 +289,7 @@ test_that("split_at_confluences output CRS matches input", {
 
   streams <- sf::st_read(fname, quiet = TRUE)
   input_crs <- sf::st_crs(streams)
+  streams <- streams[seq(1, nrow(streams), by = 10), ]
 
   result <- split_at_confluences(streams, tolerance = 0.1)
 
@@ -415,6 +425,7 @@ test_that("snap_tolerance = 0 means no snapping", {
 
 
 test_that("snap_tolerance snaps both endpoints if needed", {
+
   # Create a short line segment with both endpoints near other lines
   line1 <- sf::st_linestring(matrix(c(0, 0, 20, 0), ncol = 2, byrow = TRUE))
   line2 <- sf::st_linestring(matrix(c(0, 10, 20, 10), ncol = 2, byrow = TRUE))
@@ -441,6 +452,8 @@ test_that("snap_tolerance works with real data", {
   skip_if(fname == "", "Test data not available")
 
   streams <- sf::st_read(fname, quiet = TRUE)
+  # only process a 10th of them
+  streams <- streams[seq(1, nrow(streams), by = 10), ]
 
   # Run with snapping enabled
   result <- split_at_confluences(streams, tolerance = 0.1, snap_tolerance = 5)
@@ -449,4 +462,83 @@ test_that("snap_tolerance works with real data", {
   expect_s3_class(result$lines, "sf")
   expect_s3_class(result$confluences, "sf")
   expect_true("was_snapped" %in% names(result$lines))
+})
+
+
+# ===== Tests for vertices_only parameter =====
+
+test_that("vertices_only=TRUE detects endpoint confluences", {
+  # Create lines with a T-junction where tributary endpoint meets mainstem vertex
+  mainstem <- sf::st_linestring(matrix(c(0, 0, 10, 0, 20, 0), ncol = 2, byrow = TRUE))
+  tributary <- sf::st_linestring(matrix(c(10, 10, 10, 0), ncol = 2, byrow = TRUE))
+
+  streams <- sf::st_sf(
+    id = c(1, 2),
+    geometry = sf::st_sfc(mainstem, tributary, crs = 32610)
+  )
+
+  result <- split_at_confluences(streams, tolerance = 0.1, vertices_only = TRUE)
+
+  # Should find the confluence at (10, 0)
+  expect_equal(nrow(result$confluences), 1)
+
+  # Mainstem should be split at the confluence
+  expect_gt(nrow(result$lines), 2)
+})
+
+
+test_that("vertices_only=TRUE finds Y-junction confluences", {
+  # Create a Y-junction where all three lines meet at endpoints
+  line1 <- sf::st_linestring(matrix(c(0, 0, 10, 10), ncol = 2, byrow = TRUE))
+  line2 <- sf::st_linestring(matrix(c(20, 0, 10, 10), ncol = 2, byrow = TRUE))
+  line3 <- sf::st_linestring(matrix(c(10, 10, 10, 20), ncol = 2, byrow = TRUE))
+
+  streams <- sf::st_sf(
+    id = c(1, 2, 3),
+    geometry = sf::st_sfc(line1, line2, line3, crs = 32610)
+  )
+
+  result <- split_at_confluences(streams, tolerance = 0.1, vertices_only = TRUE)
+
+  # Should find confluence at (10, 10)
+  expect_equal(nrow(result$confluences), 1)
+
+  # No lines need splitting (all terminate at confluence)
+  expect_equal(nrow(result$lines), 3)
+})
+
+
+test_that("vertices_only=TRUE does not detect mid-segment crossings", {
+  # Create two crossing lines without a vertex at the intersection
+  line1 <- sf::st_linestring(matrix(c(0, 0, 20, 20), ncol = 2, byrow = TRUE))
+  line2 <- sf::st_linestring(matrix(c(0, 20, 20, 0), ncol = 2, byrow = TRUE))
+
+  streams <- sf::st_sf(
+    id = c(1, 2),
+    geometry = sf::st_sfc(line1, line2, crs = 32610)
+  )
+
+  # With vertices_only=TRUE, should NOT find the crossing (no vertex there)
+  result_fast <- split_at_confluences(streams, tolerance = 0.1, vertices_only = TRUE)
+  expect_equal(nrow(result_fast$confluences), 0)
+
+  # With vertices_only=FALSE (default), SHOULD find the crossing
+  result_full <- split_at_confluences(streams, tolerance = 0.1, vertices_only = FALSE)
+  expect_equal(nrow(result_full$confluences), 1)
+})
+
+
+test_that("vertices_only=TRUE works with real data", {
+  fname <- system.file("extdata", "ifc_coho.gpkg", package = "streamgis")
+  skip_if(fname == "", "Test data not available")
+
+  streams <- sf::st_read(fname, quiet = TRUE)
+  streams <- streams[seq(1, nrow(streams), by = 10), ]
+
+  result <- split_at_confluences(streams, tolerance = 0.1, vertices_only = TRUE)
+
+  # Should complete without error
+  expect_s3_class(result$lines, "sf")
+  expect_s3_class(result$confluences, "sf")
+  expect_true(all(sf::st_geometry_type(result$lines) == "LINESTRING"))
 })

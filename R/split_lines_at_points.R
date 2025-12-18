@@ -448,16 +448,20 @@ split_single_line_at_point <- function(line, point_coords) {
   # Create sf objects preserving original attributes
   line_attrs <- sf::st_drop_geometry(line)
   line_crs <- sf::st_crs(line)
+  geom_col_name <- attr(line, "sf_column")
 
-  line1 <- sf::st_sf(
-    line_attrs,
-    geometry = sf::st_sfc(sf::st_linestring(coords1), crs = line_crs)
-  )
+  # Create geometries
+  geom1 <- sf::st_sfc(sf::st_linestring(coords1), crs = line_crs)
+  geom2 <- sf::st_sfc(sf::st_linestring(coords2), crs = line_crs)
 
-  line2 <- sf::st_sf(
-    line_attrs,
-    geometry = sf::st_sfc(sf::st_linestring(coords2), crs = line_crs)
-  )
+  # Create sf objects using the original geometry column name
+  line1 <- line_attrs
+  line1[[geom_col_name]] <- geom1
+  line1 <- sf::st_as_sf(line1, sf_column_name = geom_col_name)
+
+  line2 <- line_attrs
+  line2[[geom_col_name]] <- geom2
+  line2 <- sf::st_as_sf(line2, sf_column_name = geom_col_name)
 
   return(list(line1, line2))
 }

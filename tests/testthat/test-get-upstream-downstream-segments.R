@@ -1,6 +1,7 @@
 # Tests for get_upstream_downstream_segments function
 
 test_that("get_upstream_downstream_segments finds downstream segments", {
+
   # Create a simple linear network: A -> B -> C
   # Line 1: (0,0) to (10,0)
   # Line 2: (10,0) to (20,0)
@@ -229,3 +230,57 @@ test_that("get_upstream_downstream_segments validates inputs", {
     "empty"
   )
 })
+
+
+
+
+test_that("demo case with BCFWA", {
+
+  fname <- system.file("extdata", "/bcfwa2.gpkg", package = "streamgis")
+  strm <- st_read(fname)
+
+  my_target <- which(strm$LINEAR_FEATURE_ID == 701770690)
+
+  ds <- get_upstream_downstream_segments(strm,
+                                   target = my_target,
+                                   direction = "downstream",
+                                   reverse_direction = TRUE)
+
+  us <- get_upstream_downstream_segments(strm,
+                                         target = my_target,
+                                         direction = "upstream",
+                                         reverse_direction = TRUE)
+
+  # Plot out results
+  plot(sf::st_geometry(strm), col = "lightgrey")
+  plot(sf::st_geometry(ds), col = "blue", lwd = 2, add = TRUE)
+  plot(sf::st_geometry(us), col = "orange", lwd = 2, add = TRUE)
+  plot(sf::st_geometry(strm[my_target, ]), col = "yellow", lwd = 9, add = TRUE)
+
+  # create a legend
+  legend("topright",
+         legend = c("Downstream", "Upstream", "Target Segment"),
+         col = c("blue", "orange", "yellow"),
+         lwd = c(2, 2, 9),
+         bty = "n")
+
+  # strmp <- strm[, "LINEAR_FEATURE_ID"]
+  # mapview(strmp)
+
+  expect_downstream <- c(701767869, 701750615, 703344609)
+  expect_upstream <- c(701779114, 701784499, 701306151)
+  expect_neither <- c(701758442, 703315452, 703307544)
+
+  # test ds contains all of expect_downstream but not any from expect_upstream or expect_neither
+  expect_true(all(expect_downstream %in% ds$LINEAR_FEATURE_ID))
+  expect_true(all(!expect_upstream %in% ds$LINEAR_FEATURE_ID))
+  expect_true(all(!expect_neither %in% ds$LINEAR_FEATURE_ID))
+
+  # test us contains all of expect_upstream but not any from expect_downstream or expect_neither
+  expect_true(all(expect_upstream %in% us$LINEAR_FEATURE_ID))
+  expect_true(all(!expect_downstream %in% us$LINEAR_FEATURE_ID))
+  expect_true(all(!expect_neither %in% us$LINEAR_FEATURE_ID))
+
+
+})
+

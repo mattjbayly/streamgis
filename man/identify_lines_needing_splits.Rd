@@ -8,6 +8,16 @@ identify_lines_needing_splits(streamlines, confluences, tolerance)
 }
 \description{
 Finds lines where confluence points lie in the interior
-(not at endpoints). Uses vectorized spatial operations.
+(not at endpoints). Uses vectorized spatial operations with optimizations
+for large datasets.
+}
+\details{
+Optimization strategy:
+\enumerate{
+\item Pre-compute all endpoint coordinates once (avoid repeated extraction)
+\item Use pre-allocated logical vector instead of growing integer vector
+\item Early exit when interior confluence is found for a line
+\item Skip lines with no touching confluences (common in sparse networks)
+}
 }
 \keyword{internal}

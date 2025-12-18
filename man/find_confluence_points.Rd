@@ -4,18 +4,22 @@
 \alias{find_confluence_points}
 \title{Find Confluence Points Between Stream Lines}
 \usage{
-find_confluence_points(streamlines, tolerance)
+find_confluence_points(streamlines, tolerance, vertices_only = FALSE)
 }
 \arguments{
 \item{streamlines}{An sf LINESTRING object with .\strong{line_id} column.}
 
 \item{tolerance}{Distance tolerance for merging nearby confluence points.}
+
+\item{vertices_only}{Logical. If TRUE, only detect confluences at existing
+vertices (fast mode). If FALSE, also detect mid-segment intersections.}
 }
 \value{
 An sf POINT object with confluence_id and degree columns.
 }
 \description{
-Identifies points where stream lines intersect each other
-(excluding self-intersections).
+Identifies points where stream lines intersect each other,
+including self-intersections within individual lines and near-touching
+endpoints that may be missed due to floating-point precision issues.
 }
 \keyword{internal}

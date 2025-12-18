@@ -8,6 +8,6 @@ split_lines_at_confluences(streamlines, confluences, lines_to_split, tolerance)
 }
 \description{
 Performs the actual splitting of lines at confluence points.
-Uses lwgeom::st_split for efficient line splitting.
+Uses manual splitting approach for reliability.
 }
 \keyword{internal}

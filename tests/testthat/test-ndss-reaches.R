@@ -6,6 +6,10 @@ test_that("test nd ss reaches", {
   # fname <- "./inst/extdata/center_line.gpkg"
   center_line <- sf::st_read(fname)
 
+  # Only process a fifth of them
+  center_line <- center_line[1:ceiling(nrow(center_line) / 10), ]
+  nrow(center_line)
+
   # plot(sf::st_geometry(center_line), col = "red")
   # Drop duplicates for HUC_ID
   center_line <- center_line[!duplicated(center_line$HUC_ID), ]

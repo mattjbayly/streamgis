@@ -67,18 +67,27 @@ library(sf)
 # Load stream network
 fname <- system.file("extdata", "bcfwa2.gpkg", package="streamgis")
 bcfwa <- sf::st_read(fname)
+target <- which(bcfwa$LINEAR_FEATURE_ID == 701771373)
 
-# Get downstream segments from segment 5
-downstream <- get_upstream_downstream_segments(streams, target = 5, direction = "downstream")
+# Get downstream segments from target segment
+# Remember to set reverse_direction=TRUE if lines are digitized downstream-to-upstream (BCFWA)
 
-# Get upstream segments using a point location
-point <- st_sfc(st_point(c(500000, 5000000)), crs = st_crs(streams))
-point_sf <- st_sf(geometry = point)
-upstream <- get_upstream_downstream_segments(streams, target = point_sf, direction = "upstream")
+downstream <- get_upstream_downstream_segments(bcfwa,
+target = target,
+direction = "downstream",
+reverse_direction = TRUE)
 
-# Plot results
-plot(st_geometry(streams), col = "grey")
+plot(st_geometry(bcfwa), col = "grey")
 plot(st_geometry(downstream), col = "blue", lwd = 2, add = TRUE)
+
+upstream <- get_upstream_downstream_segments(bcfwa,
+target = target,
+direction = "upstream",
+reverse_direction = TRUE)
+
+plot(st_geometry(upstream), col = "red", lwd = 2, add = TRUE)
+plot(st_geometry(bcfwa[target,]), col = "yellow", lwd = 5, add = TRUE)
+
 }
 
 }

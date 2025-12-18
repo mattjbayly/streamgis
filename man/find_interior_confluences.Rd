@@ -9,5 +9,9 @@ find_interior_confluences(line_geom, conf_geoms, tolerance)
 \description{
 Finds confluence points that lie in the interior of a line
 (not at endpoints). Uses vectorized spatial operations.
+
+For self-intersecting or near-return lines, a confluence at an endpoint may
+also touch the line at an interior position. This function includes such
+confluences.
 }
 \keyword{internal}

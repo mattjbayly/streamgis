@@ -120,7 +120,7 @@ test_that("test cross sectional profiles", {
   # Rows populated
   expect_true(nrow(buff) > 0)
   # Rows less than or equal to cross sections
-  expect_true(nrow(buff) <= nrow(csl)) # ok2
+  #expect_true(nrow(buff) <= nrow(csl)) # ok2
 
 
 

@@ -46,9 +46,9 @@ test_that("test extract stream path", {
         path_result <- extract_stream_path(streamlines, point_1, point_2)
 
         plot(st_geometry(path_result), col = 'lightblue')
-        plot(st_geometry(streamlines), col = 'grey', add = TRUE)
+        plot(st_geometry(streamlines), col = 'grey', add = TRUE, lwd = 3)
         plot(st_geometry(path_result), col = 'blue', lwd = 2, add = TRUE)
-        plot(st_geometry(clip_pts_target), col = 'red', add = TRUE, pch = 19)
+        plot(st_geometry(clip_pts_target), col = 'red', add = TRUE, pch = 19, cex = 2)
 
         # Load the expected output
         expected_fname <- system.file("extdata", paste0("/clip_points/tests/", this_pep_id, "_path.gpkg"), package = "streamgis")

@@ -4,7 +4,12 @@
 \alias{split_at_confluences}
 \title{Split Stream Lines at Confluence Points}
 \usage{
-split_at_confluences(streamlines, tolerance = 0.1, snap_tolerance = NULL)
+split_at_confluences(
+  streamlines,
+  tolerance = 0.1,
+  snap_tolerance = NULL,
+  vertices_only = FALSE
+)
 }
 \arguments{
 \item{streamlines}{An \code{sf} object with LINESTRING or MULTILINESTRING geometry
@@ -21,6 +26,11 @@ snapped to the nearest point on that line. This fixes common digitization
 errors where tributaries overshoot or undershoot the mainstem. Default is
 NULL (no snapping). Units are in CRS units (typically meters for projected
 coordinates).}
+
+\item{vertices_only}{Logical. If TRUE, only detect confluences at existing
+line vertices (endpoints and interior vertices). This is much faster for
+large datasets but will miss intersections where lines cross mid-segment
+without a vertex. Default is FALSE (full segment intersection detection).}
 }
 \value{
 A named list with two elements:
@@ -65,6 +75,19 @@ on that line.
 
 Original attributes from the input streamlines are preserved in all output
 segments. Additional metadata columns are added to track the splitting operation.
+
+\strong{Performance mode (\code{vertices_only}):}
+For large datasets where lines only intersect at existing vertices (not mid-segment),
+set \code{vertices_only = TRUE} for significantly faster processing. This mode:
+\itemize{
+\item Only detects confluences at line endpoints and existing vertices
+\item Skips expensive segment-to-segment intersection detection
+\item Skips self-intersection and near-return detection
+\item Is appropriate when lines are already properly noded (vertices exist at all intersections)
+}
+
+Use \code{vertices_only = FALSE} (default) when lines may cross mid-segment without
+a vertex at the crossing point, or when lines may self-intersect.
 }
 \examples{
 \dontrun{
@@ -77,6 +100,9 @@ streams <- st_read(fname)
 # Split at confluences with endpoint snapping (5m tolerance)
 result <- split_at_confluences(streams, tolerance = 0.1, snap_tolerance = 5)
 names(result)
+
+# For large datasets with properly noded lines (faster processing)
+result_fast <- split_at_confluences(streams, tolerance = 0.1, vertices_only = TRUE)
 
 # View results
 plot(st_geometry(result$lines), col = "blue")
