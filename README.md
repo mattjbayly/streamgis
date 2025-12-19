@@ -189,6 +189,10 @@ cat("Confluence points:", nrow(confluences), "\n")
 ```
 
 
+![Upstream Downstream Segments](./man/figures/fig_5_split_line_confluence.png)
+
+
+
 #### Split Lines at Points
 
 `split_lines_at_points()` splits line features at user-specified point locations. Points are snapped to the nearest line within a tolerance distance, and lines are split at those snapped locations. Points that snap to existing line endpoints do not trigger a split. This is useful for subdividing streams at monitoring stations, barriers, or other point features.
