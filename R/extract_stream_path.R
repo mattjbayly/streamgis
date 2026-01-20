@@ -540,25 +540,36 @@ create_stream_network <- function(streamlines) {
 #' Returns edge indices that map to row numbers in streamlines
 #'
 #' @keywords internal
+#' @importFrom igraph as.igraph ends E
 find_shortest_path_network <- function(network, streamlines, snapped_pt1, snapped_pt2) {
-
-  # streamlines <- streamlines_split
 
   # 1) Get nodes from network
   nodes <- network %>% sfnetworks::activate("nodes") %>% sf::st_as_sf()
-
-
-  # plot(st_geometry(streamlines))
-  # plot(st_geometry(streamlines_split))
-  # plot(st_geometry(nodes), add = TRUE, col = "red")
 
   # 2) Get the snapped points
   pt1 <- snapped_pt1$point
   pt2 <- snapped_pt2$point
 
   # 3) Find nearest nodes to snapped points
-  node_idx_1 <- as.integer(sf::st_nearest_feature(pt1, nodes))
-  node_idx_2 <- as.integer(sf::st_nearest_feature(pt2, nodes))
+  # IMPORTANT: Constrain to nodes that are endpoints of the line containing the snapped point
+
+  # This prevents selecting a node on a disconnected line that happens to be geometrically closer
+  graph <- igraph::as.igraph(network)
+  all_edge_endpoints <- igraph::ends(graph, igraph::E(graph))
+
+  # Get the line indices the snapped points are on
+  line_idx_1 <- snapped_pt1$line_idx
+  line_idx_2 <- snapped_pt2$line_idx
+
+  # Get candidate nodes for point 1 (endpoints of its line)
+  candidate_nodes_1 <- as.integer(all_edge_endpoints[line_idx_1, ])
+  dists_1 <- as.numeric(sf::st_distance(pt1, nodes[candidate_nodes_1, ]))
+  node_idx_1 <- candidate_nodes_1[which.min(dists_1)]
+
+  # Get candidate nodes for point 2 (endpoints of its line)
+  candidate_nodes_2 <- as.integer(all_edge_endpoints[line_idx_2, ])
+  dists_2 <- as.numeric(sf::st_distance(pt2, nodes[candidate_nodes_2, ]))
+  node_idx_2 <- candidate_nodes_2[which.min(dists_2)]
 
   # 4) Compute shortest path using edge length weights
   paths <- sfnetworks::st_network_paths(

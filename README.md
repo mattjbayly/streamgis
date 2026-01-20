@@ -16,7 +16,8 @@ It's built on modern R spatial libraries (sf, terra, sfnetworks) and is particul
 
 ### Installation
 
-`remove.package("streamgis")`
+`remove.packages("streamgis")`
+
 `devtools::install_github("mattjbayly/streamgis")`
 
 ### Commonly-used Functions and Workflow
