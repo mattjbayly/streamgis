@@ -29,6 +29,11 @@ Must be > 0. Default \code{1} for 1m.}
 
 \item{center_distance}{Numeric distance (meters) along each profile at which to
 anchor the center point for the angle calculation. Default \code{50} 50m.}
+
+\item{set_vertical_offset}{Optional numeric vertical offset (meters) added to
+the center-point elevation before computing canopy angles. For example,
+\code{1.5} to represent a sensor mounted 1.5 m above the stream surface.
+Default \code{NULL} (no offset).}
 }
 \value{
 A list with:

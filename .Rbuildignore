@@ -1,3 +1,4 @@
 ^streamgis\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^inst/misc$

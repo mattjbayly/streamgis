@@ -1,3 +1,6 @@
+# Suppress R CMD check NOTEs for dplyr NSE variables
+utils::globalVariables(c("l_id", "p_id", "dist_m", "uid"))
+
 #' Sample Profiles and Compute Canopy Open Angles
 #'
 #' @description
@@ -30,6 +33,10 @@
 #'   Must be > 0. Default \code{1} for 1m.
 #' @param center_distance Numeric distance (meters) along each profile at which to
 #'   anchor the center point for the angle calculation. Default \code{50} 50m.
+#' @param set_vertical_offset Optional numeric vertical offset (meters) added to
+#'   the center-point elevation before computing canopy angles. For example,
+#'   \code{1.5} to represent a sensor mounted 1.5 m above the stream surface.
+#'   Default \code{NULL} (no offset).
 #'
 #' @returns
 #' A list with:
@@ -133,6 +140,7 @@
 #' @importFrom sf st_crs st_geometry st_length st_line_sample st_cast st_drop_geometry
 #' @importFrom dplyr bind_cols mutate group_by group_map arrange
 #' @importFrom terra rast project same.crs extract vect nlyr
+#' @importFrom utils tail
 #' @export
 sample_profiles_and_canopy_angle <- function(csl,
                                              raster_path_tree_height = NULL,

@@ -102,7 +102,7 @@ join_data_to_cross_sections <- function(
     to_join_df_order <- to_join_df[out_df$join_index, ]
     out_df2 <- cbind(out_df, to_join_df_order)
 
-    print("parent_index is linked to points_on_line")
+    message("parent_index is linked to points_on_line")
 
     return(out_df2)
 
@@ -150,8 +150,8 @@ join_data_to_cross_sections <- function(
     # Where cross section cuts across more than
     # one streamline
     if(any(duplicated(ints$parent_index))) {
-      print("Dropping duplicate intersection points...")
-      print("for individual stream lines...")
+      message("Dropping duplicate intersection points...")
+      message("for individual stream lines...")
       ints <- ints[!(duplicated(ints$parent_index)), ]
     }
 
@@ -160,11 +160,11 @@ join_data_to_cross_sections <- function(
 
 
     if(sum(df_out2$join) == 0) {
-      print("No successful joins")
+      message("No successful joins")
     }
 
 
-    print("parent_index is linked to cross_section_lines")
+    message("parent_index is linked to cross_section_lines")
 
 
     return(df_out2)

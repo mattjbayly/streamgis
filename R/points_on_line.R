@@ -73,7 +73,7 @@ points_on_line <- function(center_line = NA,
     segment_length <- as.numeric(sf::st_length(line))
 
     if(length(segment_length) != 1) {
-      print("Cast to linstring")
+      message("Cast to linestring")
       stop("Error: MULTILINE STRING with parts not handled")
     }
 
