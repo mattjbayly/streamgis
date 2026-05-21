@@ -4,7 +4,13 @@
 \alias{split_lines_at_confluences}
 \title{Split Lines at Confluence Points}
 \usage{
-split_lines_at_confluences(streamlines, confluences, lines_to_split, tolerance)
+split_lines_at_confluences(
+  streamlines,
+  confluences,
+  lines_to_split,
+  tolerance,
+  line_conf_intersects = NULL
+)
 }
 \description{
 Performs the actual splitting of lines at confluence points.

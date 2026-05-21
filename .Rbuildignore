@@ -2,3 +2,5 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^inst/misc$
+^\.positai$
+^\.claude$

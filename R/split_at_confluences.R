@@ -99,10 +99,10 @@
 #' @importFrom sf st_sfc st_sf st_point st_linestring st_drop_geometry st_length
 #' @importFrom sf st_is_longlat st_nearest_points st_buffer st_intersects
 
-split_at_confluences <- function(streamlines, tolerance = 0.1, snap_tolerance = NULL,
-                                  vertices_only = FALSE) {
-
-
+split_at_confluences <- function(streamlines,
+                                 tolerance = 0.1,
+                                 snap_tolerance = NULL,
+                                 vertices_only = FALSE) {
   # ===== Input Validation =====
   if (!inherits(streamlines, "sf")) {
     stop("`streamlines` must be an sf object.")
@@ -119,9 +119,11 @@ split_at_confluences <- function(streamlines, tolerance = 0.1, snap_tolerance = 
 
   # Warn if using geographic coordinates
   if (sf::st_is_longlat(streamlines)) {
-    warning("Input has geographic (lat/lon) coordinates. ",
-            "Tolerance is in degrees, not meters. ",
-            "Consider reprojecting to a projected CRS for accurate results.")
+    warning(
+      "Input has geographic (lat/lon) coordinates. ",
+      "Tolerance is in degrees, not meters. ",
+      "Consider reprojecting to a projected CRS for accurate results."
+    )
   }
 
   # ===== Step 1: Preprocessing =====
@@ -131,8 +133,11 @@ split_at_confluences <- function(streamlines, tolerance = 0.1, snap_tolerance = 
   # Cast to LINESTRING if needed
   if (geom_type == "MULTILINESTRING" || geom_type == "GEOMETRY") {
     streamlines <- suppressWarnings(sf::st_cast(streamlines, "LINESTRING"))
-    message("Cast MULTILINESTRING to LINESTRING: ",
-            nrow(streamlines), " features after casting.")
+    message(
+      "Cast MULTILINESTRING to LINESTRING: ",
+      nrow(streamlines),
+      " features after casting."
+    )
   }
 
   # Add internal line ID for tracking through operations
@@ -171,21 +176,28 @@ split_at_confluences <- function(streamlines, tolerance = 0.1, snap_tolerance = 
   message("Found ", nrow(confluences), " confluence points.")
 
   # ===== Step 3: Identify Lines Needing Splits =====
-  lines_to_split <- identify_lines_needing_splits(streamlines, confluences, tolerance)
+  split_info <- identify_lines_needing_splits(streamlines, confluences, tolerance)
+
+  lines_to_split <- split_info$lines_to_split
+  line_conf_intersects <- split_info$line_conf_intersects
 
   if (length(lines_to_split) == 0) {
     message("No lines need splitting. All lines already terminate at confluences.")
     streamlines$.__line_id__ <- NULL
-    return(list(
-      lines = streamlines,
-      confluences = confluences
-    ))
+    return(list(lines = streamlines, confluences = confluences))
   }
 
-  message("Identified ", length(lines_to_split), " lines that need splitting.")
+  message("Identified ",
+          length(lines_to_split),
+          " lines that need splitting.")
 
   # ===== Step 4: Split Lines at Confluence Points =====
-  result_lines <- split_lines_at_confluences(streamlines, confluences, lines_to_split, tolerance)
+  result_lines <- split_lines_at_confluences(streamlines,
+                                             confluences,
+                                             lines_to_split,
+                                             tolerance,
+                                             line_conf_intersects)
+
 
   # ===== Step 5: Assemble Output =====
   # Clean up internal columns
@@ -196,18 +208,21 @@ split_at_confluences <- function(streamlines, tolerance = 0.1, snap_tolerance = 
   sf::st_geometry(result_lines) <- "geometry"
 
   # Reorder columns: original attributes, then tracking columns, then geometry
-  orig_cols <- setdiff(names(streamlines), c(".__line_id__", "original_fid", "was_split", "geometry"))
+  orig_cols <- setdiff(names(streamlines),
+                       c(".__line_id__", "original_fid", "was_split", "geometry"))
   col_order <- c(orig_cols, "original_fid", "was_split", "geometry")
   col_order <- col_order[col_order %in% names(result_lines)]
   result_lines <- result_lines[, col_order]
 
-  message("Output: ", nrow(result_lines), " line segments, ",
-          sum(result_lines$was_split), " created by splitting.")
+  message(
+    "Output: ",
+    nrow(result_lines),
+    " line segments, ",
+    sum(result_lines$was_split),
+    " created by splitting."
+  )
 
-  return(list(
-    lines = result_lines,
-    confluences = confluences
-  ))
+  return(list(lines = result_lines, confluences = confluences))
 }
 
 
@@ -226,7 +241,6 @@ split_at_confluences <- function(streamlines, tolerance = 0.1, snap_tolerance = 
 #'
 #' @keywords internal
 find_confluence_points <- function(streamlines, tolerance, vertices_only = FALSE) {
-
   geoms <- sf::st_geometry(streamlines)
   line_crs <- sf::st_crs(streamlines)
   all_point_geoms <- list()
@@ -267,9 +281,7 @@ find_confluence_points <- function(streamlines, tolerance, vertices_only = FALSE
       if (any(point_mask)) {
         point_geoms <- int_geoms[point_mask]
         # Cast to individual points
-        pairwise_points <- suppressWarnings(
-          sf::st_cast(sf::st_sfc(point_geoms, crs = line_crs), "POINT")
-        )
+        pairwise_points <- suppressWarnings(sf::st_cast(sf::st_sfc(point_geoms, crs = line_crs), "POINT"))
         if (length(pairwise_points) > 0) {
           all_point_geoms <- c(all_point_geoms, list(pairwise_points))
         }
@@ -375,25 +387,21 @@ find_self_intersections <- function(geoms, crs, near_return_tolerance = 1.0) {
     coords <- sf::st_coordinates(line_geom)[, 1:2, drop = FALSE]
     n_coords <- nrow(coords)
 
-    if (n_coords < 4) next
+    if (n_coords < 4)
+      next
 
     # Check segment pairs for intersections
     # Optimization: only check non-adjacent segments
     for (si in 1:(n_coords - 3)) {
-      seg_i <- sf::st_sfc(
-        sf::st_linestring(coords[si:(si + 1), , drop = FALSE]),
-        crs = crs
-      )
+      seg_i <- sf::st_sfc(sf::st_linestring(coords[si:(si + 1), , drop = FALSE]), crs = crs)
 
       for (sj in (si + 2):(n_coords - 1)) {
-        seg_j <- sf::st_sfc(
-          sf::st_linestring(coords[sj:(sj + 1), , drop = FALSE]),
-          crs = crs
-        )
+        seg_j <- sf::st_sfc(sf::st_linestring(coords[sj:(sj + 1), , drop = FALSE]), crs = crs)
 
         int_result <- sf::st_intersection(seg_i, seg_j)
 
-        if (length(int_result) > 0 && !sf::st_is_empty(int_result)) {
+        if (length(int_result) > 0 &&
+            !sf::st_is_empty(int_result)) {
           int_type <- sf::st_geometry_type(int_result)
           if (int_type == "POINT") {
             self_int_list <- c(self_int_list, list(int_result))
@@ -412,7 +420,8 @@ find_self_intersections <- function(geoms, crs, near_return_tolerance = 1.0) {
     coords <- sf::st_coordinates(geoms[i])[, 1:2, drop = FALSE]
     n_coords <- nrow(coords)
 
-    if (n_coords < 4) next  # Need at least 4 vertices for interior segments
+    if (n_coords < 4)
+      next  # Need at least 4 vertices for interior segments
 
     start_pt <- coords[1, ]
     end_pt <- coords[n_coords, ]
@@ -427,11 +436,14 @@ find_self_intersections <- function(geoms, crs, near_return_tolerance = 1.0) {
 
       if (seg_len_sq > 0) {
         # Distance from start point to this segment (using squared distance)
-        t_start <- max(0, min(1, sum((start_pt - p1) * seg_vec) / seg_len_sq))
+        t_start <- max(0, min(1, sum((
+          start_pt - p1
+        ) * seg_vec) / seg_len_sq))
         proj_start <- p1 + t_start * seg_vec
         dist_sq_to_start <- sum((start_pt - proj_start)^2)
 
-        if (dist_sq_to_start < near_return_tol_sq && dist_sq_to_start > 0) {
+        if (dist_sq_to_start < near_return_tol_sq &&
+            dist_sq_to_start > 0) {
           near_pt <- sf::st_sfc(sf::st_point(start_pt), crs = crs)
           self_int_list <- c(self_int_list, list(near_pt))
           break  # Found near-return to start, no need to check more segments
@@ -442,7 +454,8 @@ find_self_intersections <- function(geoms, crs, near_return_tolerance = 1.0) {
         proj_end <- p1 + t_end * seg_vec
         dist_sq_to_end <- sum((end_pt - proj_end)^2)
 
-        if (dist_sq_to_end < near_return_tol_sq && dist_sq_to_end > 0) {
+        if (dist_sq_to_end < near_return_tol_sq &&
+            dist_sq_to_end > 0) {
           near_pt <- sf::st_sfc(sf::st_point(end_pt), crs = crs)
           self_int_list <- c(self_int_list, list(near_pt))
           break  # Found near-return to end, no need to check more segments
@@ -465,69 +478,92 @@ find_self_intersections <- function(geoms, crs, near_return_tolerance = 1.0) {
 #'
 #' @description Identifies points where line endpoints are very close to
 #' another line but don't exactly touch due to floating-point precision.
-#' Uses a very small precision tolerance (0.01 units) to only catch true
-#' precision issues, not general near-misses.
+#' Uses a spatial index via st_is_within_distance() instead of checking
+#' every endpoint against every line.
 #'
 #' @param geoms An sfc_LINESTRING object.
-#' @param tolerance Distance tolerance (used for cluster merging, not for
-#'   finding near-touches).
+#' @param tolerance Distance tolerance.
 #' @param crs The CRS of the geometries.
 #'
 #' @returns An sfc_POINT object with near-touching endpoint locations.
 #'
 #' @keywords internal
 find_near_touching_endpoints <- function(geoms, tolerance, crs) {
-  near_touch_list <- list()
   n_lines <- length(geoms)
+  if (n_lines == 0) {
+    return(sf::st_sfc(crs = crs))
+  }
 
-  # Use a very small precision tolerance for floating-point issues only
-  # This should catch true precision issues (1e-6 to 0.01 m), not real gaps
+  # Use a very small precision tolerance for floating-point issues only.
+  # This should catch true precision issues, not real gaps.
   precision_tolerance <- min(tolerance, 0.01)
 
-  # Extract all endpoints
+  # Extract all endpoints.
   startpoints <- lwgeom::st_startpoint(geoms)
-  endpoints <- lwgeom::st_endpoint(geoms)
+  endpoints   <- lwgeom::st_endpoint(geoms)
 
-  for (i in seq_len(n_lines)) {
-    start_pt <- startpoints[i]
-    end_pt <- endpoints[i]
+  # Combine start and end points into one endpoint collection.
+  endpoint_pts <- c(startpoints, endpoints)
 
-    for (j in seq_len(n_lines)) {
-      if (i == j) next
+  # Track which original line each endpoint belongs to.
+  # First n_lines points are starts; next n_lines points are ends.
+  endpoint_line_id <- c(seq_len(n_lines), seq_len(n_lines))
 
-      line_j <- geoms[j]
+  # Spatial-indexed candidate search:
+  # for each endpoint, find only lines within precision_tolerance.
+  nearby_lines <- sf::st_is_within_distance(endpoint_pts, geoms, dist = precision_tolerance)
 
-      # Check if startpoint is near line j but doesn't exactly intersect
-      dist_start <- as.numeric(sf::st_distance(start_pt, line_j))
-      if (dist_start <= precision_tolerance && dist_start > 0) {
-        # It's close but not touching - find the nearest point on line j
-        nearest_seg <- sf::st_nearest_points(start_pt, line_j)
-        nearest_coords <- sf::st_coordinates(nearest_seg)
-        if (nrow(nearest_coords) >= 2) {
-          snap_pt <- sf::st_sfc(sf::st_point(nearest_coords[2, 1:2]), crs = crs)
-          near_touch_list <- c(near_touch_list, list(snap_pt))
-        }
-      }
+  near_touch_list <- vector("list", length(endpoint_pts))
+  out_i <- 0L
 
-      # Check if endpoint is near line j but doesn't exactly intersect
-      dist_end <- as.numeric(sf::st_distance(end_pt, line_j))
-      if (dist_end <= precision_tolerance && dist_end > 0) {
-        nearest_seg <- sf::st_nearest_points(end_pt, line_j)
-        nearest_coords <- sf::st_coordinates(nearest_seg)
-        if (nrow(nearest_coords) >= 2) {
-          snap_pt <- sf::st_sfc(sf::st_point(nearest_coords[2, 1:2]), crs = crs)
-          near_touch_list <- c(near_touch_list, list(snap_pt))
-        }
+  for (k in seq_along(endpoint_pts)) {
+    # Candidate lines near this endpoint.
+    cand <- nearby_lines[[k]]
+
+    # Exclude the line that owns this endpoint.
+    cand <- cand[cand != endpoint_line_id[k]]
+
+    if (length(cand) == 0)
+      next
+
+    # Exclude candidates that already exactly intersect/touch this endpoint.
+    # We only want near-misses, not true topological touches.
+    touches <- sf::st_intersects(endpoint_pts[k], geoms[cand])[[1]]
+
+    if (length(touches) > 0) {
+      cand <- cand[-touches]
+    }
+
+    if (length(cand) == 0)
+      next
+
+    # Snap to nearest candidate line.
+    # st_combine() avoids looping through each candidate line separately.
+    nearest_seg <- sf::st_nearest_points(endpoint_pts[k], sf::st_combine(geoms[cand]))
+
+    nearest_coords <- sf::st_coordinates(nearest_seg)
+
+    if (nrow(nearest_coords) >= 2) {
+      endpoint_xy <- sf::st_coordinates(endpoint_pts[k])[1, 1:2]
+      snap_xy     <- nearest_coords[2, 1:2]
+
+      # Extra guard: make sure this is really a near miss and not identical.
+      dist <- sqrt(sum((endpoint_xy - snap_xy)^2))
+
+      if (dist <= precision_tolerance && dist > 0) {
+        out_i <- out_i + 1L
+        near_touch_list[[out_i]] <- sf::st_point(snap_xy)
       }
     }
   }
 
-  if (length(near_touch_list) == 0) {
+  if (out_i == 0L) {
     return(sf::st_sfc(crs = crs))
   }
 
-  result <- do.call(c, near_touch_list)
-  return(result)
+  near_touch_list <- near_touch_list[seq_len(out_i)]
+
+  sf::st_sfc(near_touch_list, crs = crs)
 }
 
 
@@ -550,7 +586,8 @@ find_near_touching_endpoints <- function(geoms, tolerance, crs) {
 #' @keywords internal
 find_vertex_confluences <- function(geoms, tolerance, crs) {
   n_lines <- length(geoms)
-  if (n_lines == 0) return(sf::st_sfc(crs = crs))
+  if (n_lines == 0)
+    return(sf::st_sfc(crs = crs))
 
   # Extract all vertices from all lines with their line IDs
   all_coords <- list()
@@ -566,15 +603,13 @@ find_vertex_confluences <- function(geoms, tolerance, crs) {
   coords_mat <- do.call(rbind, all_coords)
   line_id_vec <- unlist(line_ids)
 
-  if (nrow(coords_mat) == 0) return(sf::st_sfc(crs = crs))
+  if (nrow(coords_mat) == 0)
+    return(sf::st_sfc(crs = crs))
 
   # Convert to points for spatial indexing
-  all_points <- sf::st_sfc(
-    lapply(seq_len(nrow(coords_mat)), function(i) {
-      sf::st_point(coords_mat[i, ])
-    }),
-    crs = crs
-  )
+  all_points <- sf::st_sfc(lapply(seq_len(nrow(coords_mat)), function(i) {
+    sf::st_point(coords_mat[i, ])
+  }), crs = crs)
 
   # Find points that are within tolerance of each other
   within_dist <- sf::st_is_within_distance(all_points, all_points, dist = tolerance)
@@ -585,7 +620,8 @@ find_vertex_confluences <- function(geoms, tolerance, crs) {
   processed <- logical(length(all_points))
 
   for (i in seq_along(within_dist)) {
-    if (processed[i]) next
+    if (processed[i])
+      next
 
     neighbors <- within_dist[[i]]
     neighbor_lines <- unique(line_id_vec[neighbors])
@@ -616,8 +652,10 @@ find_vertex_confluences <- function(geoms, tolerance, crs) {
 #'
 #' @keywords internal
 unique_points_within_tolerance <- function(points_sfc, tolerance) {
-  if (length(points_sfc) == 0) return(points_sfc)
-  if (length(points_sfc) == 1) return(points_sfc)
+  if (length(points_sfc) == 0)
+    return(points_sfc)
+  if (length(points_sfc) == 1)
+    return(points_sfc)
 
   # Use st_is_within_distance to find clusters (vectorized spatial index)
   within_dist <- sf::st_is_within_distance(points_sfc, points_sfc, dist = tolerance)
@@ -653,15 +691,13 @@ unique_points_within_tolerance <- function(points_sfc, tolerance) {
   unique_clusters <- unique(cluster_id)
   coords_mat <- sf::st_coordinates(points_sfc)
 
-  unique_points <- sf::st_sfc(
-    lapply(unique_clusters, function(cid) {
-      cluster_coords <- coords_mat[cluster_id == cid, 1:2, drop = FALSE]
-      # Take centroid of cluster
-      centroid <- colMeans(cluster_coords)
-      sf::st_point(centroid)
-    }),
-    crs = sf::st_crs(points_sfc)
-  )
+  unique_points <- sf::st_sfc(lapply(unique_clusters, function(cid) {
+    cluster_coords <- coords_mat[cluster_id == cid, 1:2, drop = FALSE]
+    # Take centroid of cluster
+    centroid <- colMeans(cluster_coords)
+    sf::st_point(centroid)
+  }),
+  crs = sf::st_crs(points_sfc))
 
   return(unique_points)
 }
@@ -686,8 +722,11 @@ unique_points_within_tolerance <- function(points_sfc, tolerance) {
 #' @returns Logical vector indicating which confluences need splitting.
 #'
 #' @keywords internal
-check_confluences_need_split <- function(streamlines, confluence_points, tolerance) {
-  if (length(confluence_points) == 0) return(logical(0))
+check_confluences_need_split <- function(streamlines,
+                                         confluence_points,
+                                         tolerance) {
+  if (length(confluence_points) == 0)
+    return(logical(0))
 
   line_geoms <- sf::st_geometry(streamlines)
   line_crs <- sf::st_crs(streamlines)
@@ -764,7 +803,8 @@ is_near_interior_segment <- function(line_geom, point_coords, tolerance) {
   coords <- sf::st_coordinates(line_geom)[, 1:2, drop = FALSE]
   n_coords <- nrow(coords)
 
-  if (n_coords < 4) return(FALSE)  # Need at least 4 points for interior segments
+  if (n_coords < 4)
+    return(FALSE)  # Need at least 4 points for interior segments
 
   # Check segments 2 through (n-2) - the "interior" segments
   # (Skip first segment [1-2] and last segment [(n-1)-n])
@@ -777,7 +817,9 @@ is_near_interior_segment <- function(line_geom, point_coords, tolerance) {
     seg_len_sq <- sum(seg_vec^2)
 
     if (seg_len_sq > 0) {
-      t <- max(0, min(1, sum((point_coords - p1) * seg_vec) / seg_len_sq))
+      t <- max(0, min(1, sum((
+        point_coords - p1
+      ) * seg_vec) / seg_len_sq))
       proj_point <- p1 + t * seg_vec
       dist <- sqrt(sum((point_coords - proj_point)^2))
 
@@ -797,7 +839,9 @@ is_near_interior_segment <- function(line_geom, point_coords, tolerance) {
 #' Uses buffered points and st_intersects for efficient spatial indexing.
 #'
 #' @keywords internal
-calculate_confluence_degrees <- function(streamlines, confluence_points, tolerance) {
+calculate_confluence_degrees <- function(streamlines,
+                                         confluence_points,
+                                         tolerance) {
   # Buffer confluence points by tolerance and use st_intersects
   # This uses spatial indexing and is O(n log n) instead of O(n * m * s)
   buffered_points <- sf::st_buffer(confluence_points, dist = tolerance)
@@ -821,8 +865,11 @@ calculate_confluence_degrees <- function(streamlines, confluence_points, toleran
 #' contributes degree 2 (both "arms" of the crossing).
 #'
 #' @keywords internal
-calculate_confluence_degrees_with_self_int <- function(streamlines, confluence_points, tolerance) {
-  if (length(confluence_points) == 0) return(integer(0))
+calculate_confluence_degrees_with_self_int <- function(streamlines,
+                                                       confluence_points,
+                                                       tolerance) {
+  if (length(confluence_points) == 0)
+    return(integer(0))
 
   line_geoms <- sf::st_geometry(streamlines)
   buffered_points <- sf::st_buffer(confluence_points, dist = tolerance)
@@ -839,7 +886,8 @@ calculate_confluence_degrees_with_self_int <- function(streamlines, confluence_p
 
   for (ci in seq_along(confluence_points)) {
     touching_lines <- intersects_sparse[[ci]]
-    if (length(touching_lines) == 0) next
+    if (length(touching_lines) == 0)
+      next
 
     pt <- conf_coords[ci, ]
 
@@ -871,7 +919,8 @@ calculate_confluence_degrees_with_self_int <- function(streamlines, confluence_p
 count_line_passes_through_point <- function(line_geom, point_coords, tolerance) {
   coords <- sf::st_coordinates(line_geom)[, 1:2, drop = FALSE]
   n_coords <- nrow(coords)
-  if (n_coords < 2) return(0)
+  if (n_coords < 2)
+    return(0)
 
   passes <- 0
 
@@ -883,7 +932,9 @@ count_line_passes_through_point <- function(line_geom, point_coords, tolerance) 
 
     if (seg_len_sq > 0) {
       # Project point onto segment
-      t <- max(0, min(1, sum((point_coords - p1) * seg_vec) / seg_len_sq))
+      t <- max(0, min(1, sum((
+        point_coords - p1
+      ) * seg_vec) / seg_len_sq))
       proj_point <- p1 + t * seg_vec
       dist <- sqrt(sum((point_coords - proj_point)^2))
 
@@ -900,76 +951,83 @@ count_line_passes_through_point <- function(line_geom, point_coords, tolerance) 
 #' Identify Lines That Need Splitting at Confluences
 #'
 #' @description Finds lines where confluence points lie in the interior
-#' (not at endpoints). Uses vectorized spatial operations with optimizations
-#' for large datasets.
-#'
-#' @details
-#' Optimization strategy:
-#' 1. Pre-compute all endpoint coordinates once (avoid repeated extraction)
-#' 2. Use pre-allocated logical vector instead of growing integer vector
-#' 3. Early exit when interior confluence is found for a line
-#' 4. Skip lines with no touching confluences (common in sparse networks)
+#' (not at endpoints). Also returns the precomputed line-to-confluence
+#' spatial index so it can be reused during splitting.
 #'
 #' @keywords internal
 identify_lines_needing_splits <- function(streamlines, confluences, tolerance) {
-  if (nrow(confluences) == 0) return(integer(0))
 
   n_lines <- nrow(streamlines)
+
+  empty_result <- list(
+    lines_to_split = integer(0),
+    line_conf_intersects = vector("list", n_lines)
+  )
+
+  if (nrow(confluences) == 0) {
+    return(empty_result)
+  }
+
   line_geoms <- sf::st_geometry(streamlines)
   conf_geoms <- sf::st_geometry(confluences)
 
-  # Buffer confluences and find which lines they intersect
-  # This uses spatial indexing internally (R-tree) for O(n log n) performance
-
+  # Buffer confluences once and find which lines intersect them.
+  # This is the spatial index we will reuse later during splitting.
   buffered_conf <- sf::st_buffer(conf_geoms, dist = tolerance)
   line_conf_intersects <- sf::st_intersects(line_geoms, buffered_conf)
 
-  # Quick check: if no line touches any confluence, return early
-  has_any_touching <- vapply(line_conf_intersects, function(x) length(x) > 0, logical(1))
-  if (!any(has_any_touching)) return(integer(0))
+  # Quick check: if no line touches any confluence, return early.
+  has_any_touching <- lengths(line_conf_intersects) > 0
 
-  # Extract all startpoints and endpoints at once (vectorized)
+  if (!any(has_any_touching)) {
+    return(list(
+      lines_to_split = integer(0),
+      line_conf_intersects = line_conf_intersects
+    ))
+  }
+
+  # Extract all startpoints and endpoints once.
   startpoints <- lwgeom::st_startpoint(line_geoms)
   endpoints_geom <- lwgeom::st_endpoint(line_geoms)
 
-  # Pre-compute ALL endpoint coordinates in one call (major optimization)
   start_coords <- sf::st_coordinates(startpoints)[, 1:2, drop = FALSE]
   end_coords <- sf::st_coordinates(endpoints_geom)[, 1:2, drop = FALSE]
   conf_coords <- sf::st_coordinates(conf_geoms)[, 1:2, drop = FALSE]
 
-  # Pre-allocate result vector
+  tol_sq <- tolerance^2
+
+  # Pre-allocate result vector.
   needs_split <- logical(n_lines)
 
-  # Only iterate over lines that touch at least one confluence
+  # Only iterate over lines that touch at least one confluence.
   lines_with_confs <- which(has_any_touching)
 
   for (i in lines_with_confs) {
+
     touching_confs <- line_conf_intersects[[i]]
 
-    # Get this line's endpoint coordinates (already pre-computed)
     start_coord <- start_coords[i, ]
     end_coord <- end_coords[i, ]
 
-    # Check each touching confluence
     for (j in touching_confs) {
+
       pt <- conf_coords[j, ]
 
-      # Calculate squared distances (avoid sqrt for comparison)
       dist_sq_start <- sum((pt - start_coord)^2)
       dist_sq_end <- sum((pt - end_coord)^2)
-      tol_sq <- tolerance^2
 
       if (dist_sq_start > tol_sq && dist_sq_end > tol_sq) {
-        # This confluence is in the interior - line needs splitting
         needs_split[i] <- TRUE
         break
       }
     }
   }
 
-  return(which(needs_split))
+  list(
+    lines_to_split = which(needs_split),
+    line_conf_intersects = line_conf_intersects
+  )
 }
-
 
 #' Split Lines at Confluence Points
 #'
@@ -977,7 +1035,11 @@ identify_lines_needing_splits <- function(streamlines, confluences, tolerance) {
 #' Uses manual splitting approach for reliability.
 #'
 #' @keywords internal
-split_lines_at_confluences <- function(streamlines, confluences, lines_to_split, tolerance) {
+split_lines_at_confluences <- function(streamlines,
+                                       confluences,
+                                       lines_to_split,
+                                       tolerance,
+                                       line_conf_intersects = NULL) {
 
   conf_geoms <- sf::st_geometry(confluences)
   line_geoms <- sf::st_geometry(streamlines)
@@ -1005,8 +1067,29 @@ split_lines_at_confluences <- function(streamlines, confluences, lines_to_split,
     line_geom <- line_geoms[i]
     line_attrs <- sf::st_drop_geometry(line)
 
-    # Find confluence points that are interior to this line
-    interior_confs <- find_interior_confluences(line_geom, conf_geoms, tolerance)
+    # Find candidate confluence points for this line using the
+    # precomputed line-to-confluence spatial index.
+    if (!is.null(line_conf_intersects)) {
+      candidate_confs_idx <- line_conf_intersects[[i]]
+    } else {
+      # Fallback for direct/internal use of this helper.
+      candidate_confs_idx <- seq_along(conf_geoms)
+    }
+
+    if (length(candidate_confs_idx) == 0) {
+      result_idx <- result_idx + 1
+      result_list[[result_idx]] <- line
+      next
+    }
+
+    candidate_confs <- conf_geoms[candidate_confs_idx]
+
+    # Now only test the already-indexed candidate confluences.
+    interior_confs <- find_interior_confluences_from_candidates(
+      line_geom,
+      candidate_confs,
+      tolerance
+    )
 
     if (length(interior_confs) == 0) {
       # No interior points - keep original
@@ -1047,7 +1130,8 @@ split_lines_at_confluences <- function(streamlines, confluences, lines_to_split,
     for (ci in seq_along(split_positions)) {
       pos <- split_positions[ci]
       # Skip if too close to start or end
-      if (pos * total_length < tolerance || (1 - pos) * total_length < tolerance) {
+      if (pos * total_length < tolerance ||
+          (1 - pos) * total_length < tolerance) {
         keep[ci] <- FALSE
         next
       }
@@ -1142,7 +1226,9 @@ find_position_and_snap_on_line <- function(line_coords, point_coords) {
 
     if (seg_len_sq > 0) {
       # Project point onto segment
-      t <- max(0, min(1, sum((point_coords - p1) * seg_vec) / seg_len_sq))
+      t <- max(0, min(1, sum((
+        point_coords - p1
+      ) * seg_vec) / seg_len_sq))
       proj_point <- p1 + t * seg_vec
       dist <- sqrt(sum((point_coords - proj_point)^2))
 
@@ -1174,7 +1260,10 @@ find_position_and_snap_on_line <- function(line_coords, point_coords) {
 find_all_positions_on_line <- function(line_coords, point_coords, tolerance) {
   n_coords <- nrow(line_coords)
   if (n_coords < 2) {
-    return(list(positions = numeric(0), snapped_points = matrix(nrow = 0, ncol = 2)))
+    return(list(
+      positions = numeric(0),
+      snapped_points = matrix(nrow = 0, ncol = 2)
+    ))
   }
 
   # Calculate segment lengths and cumulative distances
@@ -1184,7 +1273,10 @@ find_all_positions_on_line <- function(line_coords, point_coords, tolerance) {
   }
   total_length <- sum(segment_lengths)
   if (total_length == 0) {
-    return(list(positions = numeric(0), snapped_points = matrix(nrow = 0, ncol = 2)))
+    return(list(
+      positions = numeric(0),
+      snapped_points = matrix(nrow = 0, ncol = 2)
+    ))
   }
   cumulative_dist <- c(0, cumsum(segment_lengths))
 
@@ -1200,7 +1292,9 @@ find_all_positions_on_line <- function(line_coords, point_coords, tolerance) {
 
     if (seg_len_sq > 0) {
       # Project point onto segment
-      t <- max(0, min(1, sum((point_coords - p1) * seg_vec) / seg_len_sq))
+      t <- max(0, min(1, sum((
+        point_coords - p1
+      ) * seg_vec) / seg_len_sq))
       proj_point <- p1 + t * seg_vec
       dist <- sqrt(sum((point_coords - proj_point)^2))
 
@@ -1226,7 +1320,8 @@ find_all_positions_on_line <- function(line_coords, point_coords, tolerance) {
 #'
 #' @keywords internal
 calculate_line_length <- function(line_coords) {
-  if (nrow(line_coords) < 2) return(0)
+  if (nrow(line_coords) < 2)
+    return(0)
 
   total <- 0
   for (i in 1:(nrow(line_coords) - 1)) {
@@ -1311,10 +1406,17 @@ split_line_at_positions <- function(line_coords, snapped_points, crs) {
 
   while (vertex_idx <= n_coords || split_idx <= n_splits) {
     # Determine next event: vertex or split point
-    next_vertex_dist <- if (vertex_idx <= n_coords) cumulative_dist[vertex_idx] else Inf
-    next_split_dist <- if (split_idx <= n_splits) split_distances[split_idx] else Inf
+    next_vertex_dist <- if (vertex_idx <= n_coords)
+      cumulative_dist[vertex_idx]
+    else
+      Inf
+    next_split_dist <- if (split_idx <= n_splits)
+      split_distances[split_idx]
+    else
+      Inf
 
-    if (next_vertex_dist <= next_split_dist && vertex_idx <= n_coords) {
+    if (next_vertex_dist <= next_split_dist &&
+        vertex_idx <= n_coords) {
       # Add this vertex to current segment
       current_segment_coords <- rbind(current_segment_coords, line_coords[vertex_idx, ])
       current_dist <- next_vertex_dist
@@ -1353,6 +1455,95 @@ split_line_at_positions <- function(line_coords, snapped_points, crs) {
 }
 
 
+#' Find Interior Confluence Points for a Line from Candidate Points
+#'
+#' @description Filters a precomputed set of candidate confluence points to
+#' those that lie in the interior of a line. This avoids buffering each line
+#' and re-running st_intersects() during splitting.
+#'
+#' @keywords internal
+find_interior_confluences_from_candidates <- function(line_geom, candidate_confs, tolerance) {
+
+  if (length(candidate_confs) == 0) {
+    return(sf::st_sfc(crs = sf::st_crs(line_geom)))
+  }
+
+  line_coords <- sf::st_coordinates(line_geom)[, 1:2, drop = FALSE]
+  n_coords <- nrow(line_coords)
+
+  if (n_coords < 2) {
+    return(sf::st_sfc(crs = sf::st_crs(line_geom)))
+  }
+
+  conf_coords <- sf::st_coordinates(candidate_confs)[, 1:2, drop = FALSE]
+
+  start_coord <- line_coords[1, ]
+  end_coord <- line_coords[n_coords, ]
+
+  # Precompute segment lengths and total line length once.
+  diffs <- line_coords[-1, , drop = FALSE] - line_coords[-n_coords, , drop = FALSE]
+  seg_lengths <- sqrt(rowSums(diffs^2))
+  total_length <- sum(seg_lengths)
+
+  if (total_length == 0) {
+    return(sf::st_sfc(crs = sf::st_crs(line_geom)))
+  }
+
+  cumulative_dist <- c(0, cumsum(seg_lengths))
+  tol_sq <- tolerance^2
+
+  interior_idx <- logical(nrow(conf_coords))
+
+  for (j in seq_len(nrow(conf_coords))) {
+
+    conf_xy <- conf_coords[j, ]
+
+    dist_sq_start <- sum((conf_xy - start_coord)^2)
+    dist_sq_end <- sum((conf_xy - end_coord)^2)
+
+    # If clearly not at either endpoint, it is interior.
+    if (dist_sq_start > tol_sq && dist_sq_end > tol_sq) {
+      interior_idx[j] <- TRUE
+      next
+    }
+
+    # If it is at/near an endpoint, check whether it also touches
+    # an interior segment. This preserves your self-intersection /
+    # near-return logic.
+    for (si in seq_len(n_coords - 1)) {
+
+      p1 <- line_coords[si, ]
+      p2 <- line_coords[si + 1, ]
+
+      seg_vec <- p2 - p1
+      seg_len_sq <- sum(seg_vec^2)
+
+      if (seg_len_sq == 0) next
+
+      t <- max(0, min(1, sum((conf_xy - p1) * seg_vec) / seg_len_sq))
+      proj_point <- p1 + t * seg_vec
+
+      dist_sq <- sum((conf_xy - proj_point)^2)
+
+      if (dist_sq <= tol_sq) {
+
+        pos_dist <- cumulative_dist[si] + t * seg_lengths[si]
+
+        dist_from_start <- pos_dist
+        dist_from_end <- total_length - pos_dist
+
+        if (dist_from_start > tolerance && dist_from_end > tolerance) {
+          interior_idx[j] <- TRUE
+          break
+        }
+      }
+    }
+  }
+
+  candidate_confs[interior_idx]
+}
+
+
 #' Find Interior Confluence Points for a Line
 #'
 #' @description Finds confluence points that lie in the interior of a line
@@ -1368,7 +1559,8 @@ find_interior_confluences <- function(line_geom, conf_geoms, tolerance) {
   line_buffer <- sf::st_buffer(line_geom, dist = tolerance)
   touches <- sf::st_intersects(line_buffer, conf_geoms)[[1]]
 
-  if (length(touches) == 0) return(sf::st_sfc(crs = sf::st_crs(line_geom)))
+  if (length(touches) == 0)
+    return(sf::st_sfc(crs = sf::st_crs(line_geom)))
 
   # Get line coordinates to check for interior positions
   line_coords <- sf::st_coordinates(line_geom)[, 1:2, drop = FALSE]
@@ -1414,7 +1606,9 @@ find_interior_confluences <- function(line_geom, conf_geoms, tolerance) {
 
       if (seg_len_sq > 0) {
         # Project point onto segment
-        t <- max(0, min(1, sum((conf_coords - p1) * seg_vec) / seg_len_sq))
+        t <- max(0, min(1, sum((
+          conf_coords - p1
+        ) * seg_vec) / seg_len_sq))
         proj_point <- p1 + t * seg_vec
         dist <- sqrt(sum((conf_coords - proj_point)^2))
 
@@ -1424,7 +1618,8 @@ find_interior_confluences <- function(line_geom, conf_geoms, tolerance) {
           dist_from_start <- pos_dist
           dist_from_end <- total_length - pos_dist
 
-          if (dist_from_start > tolerance && dist_from_end > tolerance) {
+          if (dist_from_start > tolerance &&
+              dist_from_end > tolerance) {
             has_interior_position <- TRUE
             break
           }
@@ -1459,7 +1654,6 @@ find_interior_confluences <- function(line_geom, conf_geoms, tolerance) {
 #'
 #' @keywords internal
 snap_endpoints_to_lines <- function(streamlines, snap_tolerance) {
-
   n_lines <- nrow(streamlines)
   line_geoms <- sf::st_geometry(streamlines)
   line_crs <- sf::st_crs(streamlines)
@@ -1499,7 +1693,9 @@ snap_endpoints_to_lines <- function(streamlines, snap_tolerance) {
         snap_point <- nearest_coords[2, ]  # Second point is on the target line
 
         # Verify distance is within tolerance
-        dist <- sqrt(sum((sf::st_coordinates(start_pt)[1, 1:2] - snap_point)^2))
+        dist <- sqrt(sum((
+          sf::st_coordinates(start_pt)[1, 1:2] - snap_point
+        )^2))
         if (dist <= snap_tolerance && dist > 0) {
           # Update the first coordinate
           line_coords[1, ] <- snap_point
@@ -1525,7 +1721,9 @@ snap_endpoints_to_lines <- function(streamlines, snap_tolerance) {
         snap_point <- nearest_coords[2, ]
 
         # Verify distance is within tolerance
-        dist <- sqrt(sum((sf::st_coordinates(end_pt)[1, 1:2] - snap_point)^2))
+        dist <- sqrt(sum((
+          sf::st_coordinates(end_pt)[1, 1:2] - snap_point
+        )^2))
         if (dist <= snap_tolerance && dist > 0) {
           # Update the last coordinate
           line_coords[nrow(line_coords), ] <- snap_point

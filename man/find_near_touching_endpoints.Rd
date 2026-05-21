@@ -9,8 +9,7 @@ find_near_touching_endpoints(geoms, tolerance, crs)
 \arguments{
 \item{geoms}{An sfc_LINESTRING object.}
 
-\item{tolerance}{Distance tolerance (used for cluster merging, not for
-finding near-touches).}
+\item{tolerance}{Distance tolerance.}
 
 \item{crs}{The CRS of the geometries.}
 }
@@ -20,7 +19,7 @@ An sfc_POINT object with near-touching endpoint locations.
 \description{
 Identifies points where line endpoints are very close to
 another line but don't exactly touch due to floating-point precision.
-Uses a very small precision tolerance (0.01 units) to only catch true
-precision issues, not general near-misses.
+Uses a spatial index via st_is_within_distance() instead of checking
+every endpoint against every line.
 }
 \keyword{internal}
